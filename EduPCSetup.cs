@@ -520,6 +520,7 @@ namespace OnePunchSetup
             // 상태 정리
             ClearInstallState();
             UnregisterRunOnceResume();
+            ConfigureVSCodeLocaleKo();
             RepairEnvironmentAndShortcuts();
             BroadcastEnvChange();
 
@@ -528,6 +529,14 @@ namespace OnePunchSetup
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("\n[축하합니다!] 모든 교육장 PC 환경 구축 및 연동이 100% 완료되었습니다!");
+            Console.ResetColor();
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("\n[★ 개발 시작 전 체크 안내 ★]");
+            Console.WriteLine(" 1. VS Code: 실행 시 한글 언어로 표시됩니다. (미적용 시 VS Code 창을 닫고 다시 실행)");
+            Console.WriteLine(" 2. Docker Desktop: 시스템 트레이에 고래 아이콘이 뜬 후, WSL 터미널에서 'docker ps'를 실행해보세요.");
+            Console.WriteLine("    혹시 연동이 안 뜰 경우 Docker Desktop [설정(톱니바퀴)] -> [Resources] -> [WSL Integration]에서");
+            Console.WriteLine("    [Ubuntu-24.04] 토글이 켜져 있는지 확인하고 [Apply & restart]를 눌러주시면 됩니다.");
             Console.ResetColor();
 
             Console.ForegroundColor = ConsoleColor.DarkGray;
@@ -1180,10 +1189,51 @@ namespace OnePunchSetup
             catch { }
         }
 
+        static void EnsureDockerDesktopRunningAndIntegrated(string distro)
+        {
+            try
+            {
+                var docker = DetectDocker();
+                if (!docker.Installed) return;
+
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string settingsFile = Path.Combine(appData, @"Docker\settings.json");
+
+                // 손상된 파일(settingsVersion 누락) 정리
+                CleanupCorruptDockerSettings();
+
+                // Docker Desktop이 아직 settings.json을 안 만들었거나 프로세스가 안 돌고 있다면 1회 실행 유도
+                bool isRunning = Process.GetProcessesByName("Docker Desktop").Length > 0;
+                if (!File.Exists(settingsFile) && !string.IsNullOrEmpty(docker.Exe) && File.Exists(docker.Exe))
+                {
+                    Console.WriteLine("[*] Docker Desktop 설정 초기화를 위해 백그라운드 기동 중 (settings.json 대기)...");
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = docker.Exe,
+                            UseShellExecute = true,
+                            WorkingDirectory = Path.GetDirectoryName(docker.Exe)
+                        });
+                    }
+                    catch { }
+
+                    for (int i = 0; i < 15; i++)
+                    {
+                        System.Threading.Thread.Sleep(1000);
+                        if (File.Exists(settingsFile)) break;
+                    }
+                }
+
+                ConfigureDockerWSLIntegration();
+            }
+            catch { }
+        }
+
         static void FixWSLDockerPermission()
         {
-            CleanupCorruptDockerSettings();
-            ConfigureDockerWSLIntegration();
+            var wsl = DetectWSL();
+            EnsureDockerDesktopRunningAndIntegrated(wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04");
         }
 
         static void CreateRobustWSLShortcut(string distroName)
@@ -1229,6 +1279,7 @@ namespace OnePunchSetup
             {
                 AddToSystemPath(Path.GetDirectoryName(code.CodeCmd));
                 CreateShortcut("Visual Studio Code", Path.Combine(code.Path, "Code.exe"), "", Path.Combine(code.Path, "Code.exe") + ",0", "VS Code");
+                ConfigureVSCodeLocaleKo();
             }
 
             var docker = DetectDocker();
@@ -2054,13 +2105,49 @@ namespace OnePunchSetup
         {
             try
             {
+                // 1. %USERPROFILE%\.vscode\argv.json (VS Code 실제 런타임 언어 인자 경로)
+                string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                string dotVscode = Path.Combine(userProfile, ".vscode");
+                if (!Directory.Exists(dotVscode)) Directory.CreateDirectory(dotVscode);
+
+                string rootArgv = Path.Combine(dotVscode, "argv.json");
+                if (File.Exists(rootArgv))
+                {
+                    string text = File.ReadAllText(rootArgv);
+                    if (text.IndexOf("\"locale\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        text = System.Text.RegularExpressions.Regex.Replace(
+                            text,
+                            "\"locale\"\\s*:\\s*\"[^\"]*\"",
+                            "\"locale\": \"ko\"");
+                    }
+                    else
+                    {
+                        int brace = text.IndexOf('{');
+                        if (brace >= 0)
+                        {
+                            text = text.Insert(brace + 1, "\n\t\"locale\": \"ko\",");
+                        }
+                    }
+                    File.WriteAllText(rootArgv, text, Encoding.UTF8);
+                }
+                else
+                {
+                    File.WriteAllText(rootArgv, "{\n\t\"locale\": \"ko\"\n}\n", Encoding.UTF8);
+                }
+
+                // 2. %APPDATA%\Code\User\locale.json 및 argv.json 호환성 보장
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
                 string userDir = Path.Combine(appData, @"Code\User");
                 if (!Directory.Exists(userDir)) Directory.CreateDirectory(userDir);
 
-                string argvPath = Path.Combine(userDir, "argv.json");
-                string content = "{\n  \"locale\": \"ko\"\n}";
-                File.WriteAllText(argvPath, content, Encoding.UTF8);
+                string localeJson = Path.Combine(userDir, "locale.json");
+                File.WriteAllText(localeJson, "{\n  \"locale\": \"ko\"\n}", Encoding.UTF8);
+
+                string appDataArgv = Path.Combine(userDir, "argv.json");
+                File.WriteAllText(appDataArgv, "{\n  \"locale\": \"ko\"\n}", Encoding.UTF8);
+
+                Console.WriteLine("[+] VS Code 한국어 언어팩 기본 언어 설정 완료 (.vscode/argv.json -> ko)");
             }
             catch { }
         }
@@ -2259,7 +2346,12 @@ namespace OnePunchSetup
             Console.ResetColor();
             Console.WriteLine(" * Windows 기본 개발 도구(Git, Python, VS Code, Discord) 설치가 완료되었습니다.");
             Console.WriteLine(" * WSL2 및 Docker Desktop 가상화 엔진은 Windows 재부팅 후 커널이 활성화됩니다.");
-            Console.WriteLine(" * [자동 이어하기] 재부팅 후 OnePunch가 자동 실행되어 남은 리눅스 개발 도구를 마무리합니다.");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine(" ------------------------------------------------------------------------------");
+            Console.WriteLine(" [★필독★] PC 재부팅 후 OnePunch 실행 창(UAC 관리자 확인 창)이 뜨면");
+            Console.WriteLine("           반드시 [예] 또는 [실행]을 꼭 눌러주셔야 2단계 자동 마무리가 진행됩니다!");
+            Console.WriteLine(" ------------------------------------------------------------------------------");
+            Console.ResetColor();
             Console.WriteLine(" * 재부팅 후에도 가상화 오류 시 부팅 중 BIOS(F2/Del)에서 VT-x/SVM을 활성화하세요.");
             Console.WriteLine("--------------------------------------------------------------------------------");
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -2288,7 +2380,9 @@ namespace OnePunchSetup
                     else if (key.Key == ConsoleKey.N || c == 'N' || key.Key == ConsoleKey.Enter || key.Key == ConsoleKey.Escape)
                     {
                         Console.ForegroundColor = ConsoleColor.DarkYellow;
-                        Console.WriteLine("\n\n[*] 재부팅을 보류합니다. 나중에 PC를 재부팅하시면 남은 리눅스 설정이 자동으로 이어집니다.");
+                        Console.WriteLine("\n\n[*] 재부팅을 보류합니다.");
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine(" [★안내★] 나중에 PC를 재부팅하시면 OnePunch 실행 창이 뜹니다. 꼭 [예/실행]을 눌러주세요!");
                         Console.ResetColor();
                         break;
                     }

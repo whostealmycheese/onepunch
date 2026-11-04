@@ -273,6 +273,18 @@
             </p>
           </div>
         </div>
+
+        <div class="flex items-start gap-5 p-6 rounded-2xl bg-amber-950/30 border border-amber-500/40">
+          <div class="w-10 h-10 rounded-full bg-amber-600/20 text-amber-400 font-bold flex items-center justify-center border border-amber-500/30 shrink-0">
+            4
+          </div>
+          <div>
+            <h4 class="text-lg font-bold text-amber-300 mb-1">PC 재부팅 시 OnePunch 실행창 꼭 [예/실행] 클릭!</h4>
+            <p class="text-sm text-slate-300">
+              1단계 설치 완료 후 재부팅하면 OnePunch 실행 확인창(UAC 관리자 확인)이 자동으로 뜹니다. 이때 <strong class="text-white underline">반드시 [예] 또는 [실행]</strong>을 눌러주셔야 2단계(WSL 리눅스 도구 구성 및 Docker WSL2 자동 연동)가 100% 마무리됩니다!
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -337,6 +349,20 @@
           <h4 class="font-bold text-white text-base mb-2">Q. 실습실 PC에 인터넷이 느리거나 패키지 매니저가 안 깔려 있으면요?</h4>
           <p class="text-sm text-slate-400">
             원펀치는 실행 즉시 초코레이틀리(Chocolatey)를 자동 점검하여 사전 구성합니다. 만약 네트워크 문제로 초코레이틀리 설치가 실패하더라도 각 도구의 공식 인스톨러(Python.org, Microsoft, Docker) 직접 다운로드 방식으로 자동 폴백되므로 걱정 없습니다.
+          </p>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+          <h4 class="font-bold text-white text-base mb-2">Q. VS Code 한국어 확장팩이 설치되었는데 영문으로 표시될 때는요?</h4>
+          <p class="text-sm text-slate-400">
+            원펀치가 VS Code의 런타임 언어 설정(<code class="text-indigo-300">.vscode/argv.json</code>)을 <code class="text-indigo-300">ko</code>로 자동 세팅합니다. 켜져 있는 VS Code 창을 완전히 닫고 다시 실행하시면 바로 한글 메뉴로 적용됩니다.
+          </p>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+          <h4 class="font-bold text-white text-base mb-2">Q. Docker Desktop과 WSL2 연동은 어떻게 동작하나요?</h4>
+          <p class="text-sm text-slate-400">
+            PC 재부팅 후 OnePunch 자동 이어하기(Resume)가 실행되면 Docker Desktop 백그라운드 기동 및 <code class="text-indigo-300">Ubuntu-24.04</code> 연동 설정이 자동으로 주입됩니다. 만약 도커 실행 후 WSL 터미널에서 <code class="text-indigo-300">docker</code> 명령어가 안 먹힐 경우, Docker Desktop 우측 상단 [설정(톱니바퀴)] &gt; [Resources] &gt; [WSL Integration]에서 <code class="text-indigo-300">Ubuntu-24.04</code> 스위치를 ON으로 켜고 <strong>[Apply &amp; restart]</strong>를 눌러주시면 됩니다.
           </p>
         </div>
 

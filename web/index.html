@@ -42,7 +42,7 @@
         <a href="#guide" class="hover:text-blue-400 transition-colors">사용 방법</a>
         <a href="#faq" class="hover:text-blue-400 transition-colors">자주 묻는 질문</a>
         <a href="#feedback" class="hover:text-blue-400 transition-colors flex items-center gap-1.5">
-          <span>버그 제보 & 댓글</span>
+          <span>버그 제보 (디스코드)</span>
           <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         </a>
       </nav>
@@ -86,8 +86,8 @@
           <span class="text-xs py-0.5 px-2 rounded-full bg-white/20 font-normal">v3.0 (50KB)</span>
         </a>
         <a href="#feedback" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-base border border-slate-800 transition-all">
-          <i class="fa-regular fa-comment-dots"></i>
-          <span>버그 제보 & 피드백</span>
+          <i class="fa-brands fa-discord text-[#5865F2] text-lg"></i>
+          <span>디스코드 버그 제보</span>
         </a>
       </div>
 
@@ -253,86 +253,41 @@
     </div>
   </section>
 
-  <!-- Bug Report & Comment Board -->
+  <!-- Bug Report & Discord Callout -->
   <section id="feedback" class="py-20 bg-slate-950 border-b border-slate-900">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6">
       
-      <div class="text-center mb-12">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold mb-3">
-          <i class="fa-solid fa-bug"></i>
-          <span>실시간 피드백 & 버그 리포트</span>
+      <div class="p-8 sm:p-12 rounded-3xl bg-gradient-to-b from-indigo-950/40 to-slate-900/90 border border-indigo-500/30 shadow-2xl text-center relative overflow-hidden">
+        
+        <!-- Background Glow -->
+        <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="w-16 h-16 rounded-2xl bg-[#5865F2]/20 border border-[#5865F2]/40 text-[#5865F2] flex items-center justify-center text-3xl mx-auto mb-6 shadow-lg shadow-[#5865F2]/20">
+          <i class="fa-brands fa-discord"></i>
         </div>
-        <h3 class="text-3xl font-extrabold text-white">동기들의 버그 제보 & 피드백</h3>
-        <p class="text-slate-400 text-sm mt-2">개인 노트북이나 교육장 PC에서 설치 중 안 되는 점, 에러 메시지, 건의사항을 편하게 남겨주세요!</p>
-      </div>
 
-      <!-- Feedback Form Card -->
-      <div class="p-6 sm:p-8 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl mb-10">
-        <form id="commentForm" onsubmit="handleCommentSubmit(event)" class="space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">작성자 / 닉네임</label>
-              <input type="text" id="authorInput" required placeholder="예: 3기 수강생 홍길동" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">분류</label>
-              <select id="categoryInput" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-blue-500 transition-colors">
-                <option value="bug">🐞 버그 제보</option>
-                <option value="feature">💡 기능 제안</option>
-                <option value="question">❓ 설치 질문</option>
-                <option value="praise">💬 사용 후기</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">OS 환경</label>
-              <select id="osInput" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-blue-500 transition-colors">
-                <option value="Windows 11 (64bit)">Windows 11 (64bit)</option>
-                <option value="Windows 10 (64bit)">Windows 10 (64bit)</option>
-                <option value="기타 / 확인불가">기타 / 확인불가</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1.5">제목</label>
-            <input type="text" id="titleInput" required placeholder="예: Docker 설치 후 재부팅 시 가상화 오류 현상" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors">
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1.5">상세 내용 (에러 메시지 및 발생 과정)</label>
-            <textarea id="contentInput" required rows="4" placeholder="발생한 에러 내용이나 PC 사양, 원하시는 개선 사항을 자유롭게 적어주세요." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none"></textarea>
-          </div>
-
-          <div class="flex items-center justify-between pt-2">
-            <span class="text-xs text-slate-500">
-              <i class="fa-solid fa-shield-halved mr-1"></i> 등록된 댓글은 브라우저에 즉시 저장 및 공유됩니다.
-            </span>
-            <button type="submit" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
-              <i class="fa-solid fa-paper-plane"></i>
-              <span>등록하기</span>
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- Filter Tabs -->
-      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div class="flex items-center gap-2">
-          <span class="text-sm font-bold text-white">등록된 댓글</span>
-          <span id="commentCount" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">0</span>
+        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#5865F2]/10 border border-[#5865F2]/30 text-indigo-300 text-xs font-semibold mb-4">
+          <span>💬 피드백 & 버그 리포트</span>
         </div>
-        <div class="flex items-center gap-1.5 text-xs">
-          <button onclick="filterCategory('all')" class="filter-btn active px-3 py-1 rounded-lg bg-blue-600 text-white font-medium">전체</button>
-          <button onclick="filterCategory('bug')" class="filter-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300">버그 제보</button>
-          <button onclick="filterCategory('feature')" class="filter-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300">기능 제안</button>
-          <button onclick="filterCategory('question')" class="filter-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300">질문</button>
-          <button onclick="filterCategory('praise')" class="filter-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300">후기</button>
-        </div>
-      </div>
 
-      <!-- Comments List Container -->
-      <div id="commentsList" class="space-y-3">
-        <!-- Rendered dynamically by JavaScript -->
+        <h3 class="text-2xl sm:text-3xl font-extrabold text-white mb-4">
+          버그 제보는 <span class="text-[#5865F2]">디스코드 댓글</span>로 남겨주세요!
+        </h3>
+
+        <p class="text-slate-300 text-sm sm:text-base leading-relaxed max-w-xl mx-auto mb-8">
+          개인 노트북이나 교육장 PC에서 설치 중 오류가 발생하거나 안 되는 점이 있다면,<br class="hidden sm:inline" />
+          <strong class="text-white">교육 과정 디스코드 채널 댓글</strong>로 편하게 남겨주세요.<br />
+          확인 즉시 수정하여 새 버전을 빠르게 배포하겠습니다!
+        </p>
+
+        <div class="inline-flex flex-wrap items-center justify-center gap-3 text-xs text-slate-400 bg-slate-950/60 py-3 px-5 rounded-xl border border-slate-800">
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-check text-emerald-400"></i> Windows 에러 메시지 캡처 환영</span>
+          <span class="text-slate-700 hidden sm:inline">•</span>
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-check text-emerald-400"></i> 원하는 추가 도구 건의 환영</span>
+          <span class="text-slate-700 hidden sm:inline">•</span>
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-check text-emerald-400"></i> 설치 성공 후기도 대환영</span>
+        </div>
+
       </div>
 
     </div>
@@ -382,135 +337,5 @@
     </div>
   </footer>
 
-  <!-- Client-side Interactive Comment Board Script -->
-  <script>
-    const STORAGE_KEY = 'onepunch_feedback_comments_v3_clean';
-
-    function getComments() {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return [];
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        return [];
-      }
-    }
-
-    let currentFilter = 'all';
-
-    function renderComments() {
-      const allComments = getComments();
-      const filtered = currentFilter === 'all' 
-        ? allComments 
-        : allComments.filter(c => c.category === currentFilter);
-
-      const listEl = document.getElementById('commentsList');
-      const countEl = document.getElementById('commentCount');
-      countEl.textContent = allComments.length;
-
-      if (filtered.length === 0) {
-        listEl.innerHTML = `
-          <div class="text-center py-12 rounded-2xl bg-slate-900/40 border border-slate-800 text-slate-500 text-sm">
-            <i class="fa-regular fa-folder-open text-2xl mb-2 block"></i>
-            해당 분류의 댓글이 아직 없습니다. 첫 번째 의견을 남겨주세요!
-          </div>
-        `;
-        return;
-      }
-
-      listEl.innerHTML = filtered.map(c => {
-        let badgeColor = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-        if (c.category === 'bug') badgeColor = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-        else if (c.category === 'feature') badgeColor = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-        else if (c.category === 'praise') badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-
-        return `
-          <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-colors">
-            <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
-              <div class="flex items-center gap-2">
-                <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold border ${badgeColor}">
-                  ${c.categoryLabel || c.category}
-                </span>
-                <span class="text-xs font-bold text-slate-200">${escapeHtml(c.author)}</span>
-                <span class="text-xs text-slate-500">| ${escapeHtml(c.os || '')}</span>
-              </div>
-              <span class="text-xs text-slate-500 font-mono">${escapeHtml(c.createdAt)}</span>
-            </div>
-            <h5 class="text-sm font-bold text-white mb-1.5">${escapeHtml(c.title)}</h5>
-            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">${escapeHtml(c.content)}</p>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function filterCategory(cat) {
-      currentFilter = cat;
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('bg-blue-600', 'text-white');
-        btn.classList.add('bg-slate-900', 'text-slate-300');
-      });
-      event.target.classList.remove('bg-slate-900', 'text-slate-300');
-      event.target.classList.add('bg-blue-600', 'text-white');
-      renderComments();
-    }
-
-    function handleCommentSubmit(e) {
-      e.preventDefault();
-      const author = document.getElementById('authorInput').value.trim();
-      const category = document.getElementById('categoryInput').value;
-      const os = document.getElementById('osInput').value;
-      const title = document.getElementById('titleInput').value.trim();
-      const content = document.getElementById('contentInput').value.trim();
-
-      const catMap = {
-        bug: '🐞 버그 제보',
-        feature: '💡 기능 제안',
-        question: '❓ 설치 질문',
-        praise: '💬 사용 후기'
-      };
-
-      const now = new Date();
-      const createdAt = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-
-      const newComment = {
-        id: 'comment-' + Date.now(),
-        author,
-        category,
-        categoryLabel: catMap[category],
-        os,
-        title,
-        content,
-        createdAt
-      };
-
-      const list = getComments();
-      list.unshift(newComment);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-
-      // Reset form
-      document.getElementById('titleInput').value = '';
-      document.getElementById('contentInput').value = '';
-
-      renderComments();
-
-      // Smooth scroll to comments
-      document.getElementById('feedback').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
-
-    // Initial render
-    document.addEventListener('DOMContentLoaded', () => {
-      renderComments();
-    });
-  </script>
 </body>
 </html>

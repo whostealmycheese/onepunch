@@ -46,7 +46,7 @@ namespace OnePunchSetup
                 }
                 else if (arg.Equals("/check", StringComparison.OrdinalIgnoreCase) || arg.Equals("--check", StringComparison.OrdinalIgnoreCase))
                 {
-                    cliChoice = "10";
+                    cliChoice = "11";
                 }
                 else if (arg.Equals("/all", StringComparison.OrdinalIgnoreCase) || arg.Equals("--all", StringComparison.OrdinalIgnoreCase))
                 {
@@ -55,7 +55,7 @@ namespace OnePunchSetup
                 else
                 {
                     int n;
-                    if (int.TryParse(arg, out n) && n >= 0 && n <= 10)
+                    if (int.TryParse(arg, out n) && n >= 0 && n <= 11)
                     {
                         cliChoice = arg;
                     }
@@ -91,7 +91,7 @@ namespace OnePunchSetup
                 PrintMenu();
 
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Write("\n선택 [0-10]: ");
+                Console.Write("\n선택 [0-11]: ");
                 Console.ResetColor();
 
                 string choice = Console.ReadLine();
@@ -167,15 +167,16 @@ namespace OnePunchSetup
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine(" [1] 전체 설치");
             Console.ResetColor();
-            Console.WriteLine(" [2] Python 3.12");
-            Console.WriteLine(" [3] Visual Studio Code");
-            Console.WriteLine(" [4] Docker Desktop");
-            Console.WriteLine(" [5] WSL2 & Ubuntu 24.04 LTS");
-            Console.WriteLine(" [6] WSL 리눅스 개발 환경 설정");
-            Console.WriteLine(" [7] 터미널 파워 도구 팩");
-            Console.WriteLine(" [8] 다중 선택 설치");
-            Console.WriteLine(" [9] 환경변수 및 바로가기 복구");
-            Console.WriteLine(" [10] 설치 상태 검증");
+            Console.WriteLine(" [2] Git for Windows");
+            Console.WriteLine(" [3] Python 3.12");
+            Console.WriteLine(" [4] Visual Studio Code");
+            Console.WriteLine(" [5] Docker Desktop");
+            Console.WriteLine(" [6] WSL2 & Ubuntu 24.04 LTS");
+            Console.WriteLine(" [7] WSL 리눅스 개발 환경 설정");
+            Console.WriteLine(" [8] 터미널 파워 도구 팩");
+            Console.WriteLine(" [9] 다중 선택 설치");
+            Console.WriteLine(" [10] 환경변수 및 바로가기 복구");
+            Console.WriteLine(" [11] 설치 상태 검증");
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine(" [0] 종료");
             Console.ResetColor();
@@ -192,6 +193,7 @@ namespace OnePunchSetup
                 case "1":
                     Console.WriteLine("\n>>> [1. 전체 설치] 시작\n");
                     PerformPreFlightChecks();
+                    ExecuteGit();
                     ExecutePython();
                     ExecuteVSCode();
                     ExecuteDocker();
@@ -203,45 +205,51 @@ namespace OnePunchSetup
                     break;
 
                 case "2":
-                    Console.WriteLine("\n>>> [2. Python 3.12] 시작\n");
-                    ExecutePython();
+                    Console.WriteLine("\n>>> [2. Git for Windows] 시작\n");
+                    ExecuteGit();
                     BroadcastEnvChange();
                     break;
 
                 case "3":
-                    Console.WriteLine("\n>>> [3. Visual Studio Code] 시작\n");
-                    ExecuteVSCode();
+                    Console.WriteLine("\n>>> [3. Python 3.12] 시작\n");
+                    ExecutePython();
                     BroadcastEnvChange();
                     break;
 
                 case "4":
-                    Console.WriteLine("\n>>> [4. Docker Desktop] 시작\n");
-                    ExecuteDocker();
+                    Console.WriteLine("\n>>> [4. Visual Studio Code] 시작\n");
+                    ExecuteVSCode();
                     BroadcastEnvChange();
                     break;
 
                 case "5":
-                    Console.WriteLine("\n>>> [5. WSL2 & Ubuntu 24.04 LTS] 시작\n");
-                    ExecuteWSL();
+                    Console.WriteLine("\n>>> [5. Docker Desktop] 시작\n");
+                    ExecuteDocker();
                     BroadcastEnvChange();
                     break;
 
                 case "6":
-                    Console.WriteLine("\n>>> [6. WSL 리눅스 개발 환경 설정] 시작\n");
-                    ProvisionWSLLinux("");
+                    Console.WriteLine("\n>>> [6. WSL2 & Ubuntu 24.04 LTS] 시작\n");
+                    ExecuteWSL();
+                    BroadcastEnvChange();
                     break;
 
                 case "7":
-                    Console.WriteLine("\n>>> [7. 터미널 파워 도구 팩] 시작\n");
-                    InstallTerminalPowerTools("");
+                    Console.WriteLine("\n>>> [7. WSL 리눅스 개발 환경 설정] 시작\n");
+                    ProvisionWSLLinux("");
                     break;
 
                 case "8":
-                    RunMultiSelect();
+                    Console.WriteLine("\n>>> [8. 터미널 파워 도구 팩] 시작\n");
+                    InstallTerminalPowerTools("");
                     break;
 
                 case "9":
-                    Console.WriteLine("\n>>> [9. 환경변수 및 바로가기 복구] 시작\n");
+                    RunMultiSelect();
+                    break;
+
+                case "10":
+                    Console.WriteLine("\n>>> [10. 환경변수 및 바로가기 복구] 시작\n");
                     RepairEnvironmentAndShortcuts();
                     BroadcastEnvChange();
                     Console.ForegroundColor = ConsoleColor.Green;
@@ -249,14 +257,14 @@ namespace OnePunchSetup
                     Console.ResetColor();
                     break;
 
-                case "10":
-                    Console.WriteLine("\n>>> [10. 설치 상태 검증] 시작\n");
+                case "11":
+                    Console.WriteLine("\n>>> [11. 설치 상태 검증] 시작\n");
                     ShowVerifyReport();
                     break;
 
                 default:
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("잘못된 번호입니다. [0-10] 사이 숫자를 입력하세요.");
+                    Console.WriteLine("잘못된 번호입니다. [0-11] 사이 숫자를 입력하세요.");
                     Console.ResetColor();
                     break;
             }
@@ -265,13 +273,14 @@ namespace OnePunchSetup
         static void RunMultiSelect()
         {
             Console.WriteLine("\n[다중 선택 설치]");
-            Console.WriteLine("  2: Python 3.12");
-            Console.WriteLine("  3: Visual Studio Code");
-            Console.WriteLine("  4: Docker Desktop");
-            Console.WriteLine("  5: WSL2 & Ubuntu 24.04 LTS");
-            Console.WriteLine("  6: WSL 리눅스 개발 환경 설정");
-            Console.WriteLine("  7: 터미널 파워 도구 팩");
-            Console.Write("\n설치할 번호를 쉼표로 입력 (예: 2,3,6 또는 4,5,6): ");
+            Console.WriteLine("  2: Git for Windows");
+            Console.WriteLine("  3: Python 3.12");
+            Console.WriteLine("  4: Visual Studio Code");
+            Console.WriteLine("  5: Docker Desktop");
+            Console.WriteLine("  6: WSL2 & Ubuntu 24.04 LTS");
+            Console.WriteLine("  7: WSL 리눅스 개발 환경 설정");
+            Console.WriteLine("  8: 터미널 파워 도구 팩");
+            Console.Write("\n설치할 번호를 쉼표로 입력 (예: 2,3,4 또는 5,6,7): ");
             string input = Console.ReadLine();
             if (string.IsNullOrEmpty(input)) return;
 
@@ -280,12 +289,13 @@ namespace OnePunchSetup
 
             PerformPreFlightChecks();
 
-            if (selected.Contains("2")) ExecutePython();
-            if (selected.Contains("3")) ExecuteVSCode();
-            if (selected.Contains("4")) ExecuteDocker();
-            if (selected.Contains("5")) ExecuteWSL();
-            if (selected.Contains("6")) ProvisionWSLLinux("");
-            if (selected.Contains("7")) InstallTerminalPowerTools("");
+            if (selected.Contains("2")) ExecuteGit();
+            if (selected.Contains("3")) ExecutePython();
+            if (selected.Contains("4")) ExecuteVSCode();
+            if (selected.Contains("5")) ExecuteDocker();
+            if (selected.Contains("6")) ExecuteWSL();
+            if (selected.Contains("7")) ProvisionWSLLinux("");
+            if (selected.Contains("8")) InstallTerminalPowerTools("");
 
             RepairEnvironmentAndShortcuts();
             BroadcastEnvChange();
@@ -307,7 +317,7 @@ namespace OnePunchSetup
             }
             catch { }
 
-            string[] procs = { "Code", "Docker Desktop", "python" };
+            string[] procs = { "git", "Code", "Docker Desktop", "python" };
             foreach (var p in procs)
             {
                 if (Process.GetProcessesByName(p).Length > 0)
@@ -320,6 +330,66 @@ namespace OnePunchSetup
         }
 
         #region Installation Logic
+
+        static void ExecuteGit()
+        {
+            Console.WriteLine("\n[설치] Git 점검 및 설치");
+
+            var detected = DetectGit();
+            string gitCmdDir = @"C:\Program Files\Git\cmd";
+
+            if (detected.Installed)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("[-] 이미 설치됨: Git " + detected.Version + " (" + detected.Path + ")");
+                Console.ResetColor();
+                if (!string.IsNullOrEmpty(detected.Path)) gitCmdDir = detected.Path;
+            }
+            else
+            {
+                bool installed = false;
+
+                // 1. Chocolatey 우선 설치
+                if (IsChocoAvailable())
+                {
+                    Console.WriteLine("[*] Chocolatey로 Git 설치 중...");
+                    int code = RunProcess("choco.exe", "install git -y --no-progress", true);
+                    if (code == 0)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] Chocolatey Git 설치 완료");
+                        Console.ResetColor();
+                        installed = true;
+                    }
+                }
+
+                // 2. 공식 인스톨러 폴백
+                if (!installed)
+                {
+                    Console.WriteLine("[*] 공식 Git 인스톨러 다운로드 및 설치 중...");
+                    string gitVersion = "2.47.1";
+                    string url = "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe";
+                    string installer = Path.Combine(InstallersDir, "Git-" + gitVersion + "-64-bit.exe");
+
+                    if (DownloadFileWithRetry(url, installer))
+                    {
+                        string args = "/VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS";
+                        RunProcess(installer, args, true);
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] Git 설치 완료");
+                        Console.ResetColor();
+                    }
+                }
+
+                var fresh = DetectGit();
+                if (fresh.Installed && !string.IsNullOrEmpty(fresh.Path)) gitCmdDir = fresh.Path;
+            }
+
+            if (Directory.Exists(gitCmdDir))
+            {
+                AddToSystemPath(gitCmdDir);
+            }
+        }
 
         static void ExecutePython()
         {
@@ -725,6 +795,12 @@ namespace OnePunchSetup
 
         static void RepairEnvironmentAndShortcuts()
         {
+            var git = DetectGit();
+            if (git.Installed && !string.IsNullOrEmpty(git.Path))
+            {
+                AddToSystemPath(git.Path);
+            }
+
             var py = DetectPython();
             if (py.Installed && Directory.Exists(py.Path))
             {
@@ -763,6 +839,103 @@ namespace OnePunchSetup
         #endregion
 
         #region Multi-Tier Deep Detection Engine
+
+        public class GitInfo { public bool Installed; public string Version; public string Path; }
+        static GitInfo DetectGit()
+        {
+            var res = new GitInfo { Installed = false, Version = "", Path = "" };
+
+            // Tier 1: where.exe git
+            string whereOut = RunProcessWithOutput("where.exe", "git.exe").Trim();
+            if (!string.IsNullOrEmpty(whereOut))
+            {
+                string[] lines = whereOut.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    string p = line.Trim();
+                    if (File.Exists(p) && p.IndexOf("Git", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        res.Installed = true;
+                        res.Path = Path.GetDirectoryName(p);
+                        break;
+                    }
+                }
+            }
+
+            // Tier 2: Registry (HKLM & HKCU)
+            if (!res.Installed)
+            {
+                string[] rootKeys = {
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Git_is1",
+                    @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Git_is1"
+                };
+
+                foreach (var keyPath in rootKeys)
+                {
+                    try
+                    {
+                        using (var k = Registry.LocalMachine.OpenSubKey(keyPath))
+                        {
+                            if (k != null)
+                            {
+                                string loc = k.GetValue("InstallLocation") as string;
+                                string ver = k.GetValue("DisplayVersion") as string;
+                                if (!string.IsNullOrEmpty(loc) && Directory.Exists(loc))
+                                {
+                                    res.Installed = true;
+                                    res.Version = ver ?? "";
+                                    res.Path = Path.Combine(loc, "cmd");
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            // Tier 3: Well-known paths
+            if (!res.Installed)
+            {
+                string[] candidates = {
+                    @"C:\Program Files\Git\cmd",
+                    @"C:\Program Files (x86)\Git\cmd",
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\Git\cmd")
+                };
+
+                foreach (var c in candidates)
+                {
+                    if (File.Exists(Path.Combine(c, "git.exe")))
+                    {
+                        res.Installed = true;
+                        res.Path = c;
+                        break;
+                    }
+                }
+            }
+
+            // Tier 4: Version probe
+            if (res.Installed)
+            {
+                string gitExe = !string.IsNullOrEmpty(res.Path) ? Path.Combine(res.Path, "git.exe") : "git.exe";
+                if (!File.Exists(gitExe)) gitExe = "git.exe";
+                string outVer = RunProcessWithOutput(gitExe, "--version").Trim();
+                if (!string.IsNullOrEmpty(outVer))
+                {
+                    string[] tokens = outVer.Split(' ');
+                    foreach (var tok in tokens)
+                    {
+                        if (tok.Contains(".") && char.IsDigit(tok[0]))
+                        {
+                            res.Version = tok.Trim();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return res;
+        }
 
         public class PythonInfo { public bool Installed; public string Version; public string Path; }
         static PythonInfo DetectPython()
@@ -1374,19 +1547,23 @@ namespace OnePunchSetup
             Console.WriteLine("================================================================================");
             Console.ResetColor();
 
-            // 1. Python
+            // 1. Git
+            var git = DetectGit();
+            PrintStatusRow("Git for Windows", git.Installed ? (git.Version + " (" + git.Path + ")") : "미설치", git.Installed);
+
+            // 2. Python
             var py = DetectPython();
             PrintStatusRow("Python", py.Installed ? (py.Version + " (" + py.Path + ")") : "미설치", py.Installed);
 
-            // 2. VS Code
+            // 3. VS Code
             var code = DetectVSCode();
             PrintStatusRow("Visual Studio Code", code.Installed ? ("설치됨 (" + (code.KoreanExt ? "한국어팩 적용" : "한국어팩 필요") + ")") : "미설치", code.Installed);
 
-            // 3. Docker
+            // 4. Docker
             var docker = DetectDocker();
             PrintStatusRow("Docker Desktop", docker.Installed ? ("설치됨 (" + docker.Path + ")") : "미설치", docker.Installed);
 
-            // 4. WSL
+            // 5. WSL
             var wsl = DetectWSL();
             PrintStatusRow("WSL2 / Ubuntu", wsl.Installed ? (wsl.HasUbuntu ? (wsl.DistroName + " 활성화") : "WSL 설치됨 (배포판 필요)") : "미설치", wsl.Installed && wsl.HasUbuntu);
 

@@ -2,7 +2,7 @@
 
 본 프로젝트는 부트캠프, 아카데미, 컴퓨터공학 과정의 **교육생 동기들을 위해 직접 개발한 초경량(50KB) 단일 실행기**입니다.
 
-수업 따라가기도 바쁜 첫날부터 파이썬 환경변수, WSL 즉시 꺼짐, 도커 소켓 권한 에러(`permission denied`) 등으로 고통받지 않도록, **단 한 번의 클릭으로 4대 필수 개발 환경(Python 3.12, VS Code, Docker Desktop, WSL2 Ubuntu 24.04)**과 리눅스 내부 실습 환경을 완벽하게 무인 설치해 줍니다.
+수업 따라가기도 바쁜 첫날부터 Git 설치, 파이썬 환경변수, WSL 즉시 꺼짐, 도커 소켓 권한 에러(`permission denied`) 등으로 고통받지 않도록, **단 한 번의 클릭으로 5대 필수 개발 환경(Git for Windows, Python 3.12, VS Code, Docker Desktop, WSL2 Ubuntu 24.04)**과 리눅스 내부 실습 환경을 완벽하게 무인 설치해 줍니다.
 
 ---
 
@@ -11,18 +11,20 @@
 1. **초경량 50KB 단일 실행 파일 (`OnePunch.exe`)**:
    * 외부 런타임(Python, Node, Rust 등) 설치 불필요, Windows 10/11 내장 엔진으로 즉시 구동.
    * 멋진 펀치 전용 아이콘 임베딩 완료.
-2. **Chocolatey(choco) 자동 사전 구성**:
+2. **Git for Windows & 전역 PATH 자동 등록**:
+   * Windows용 최신 Git 무인 설치 및 Git Credential Manager, 터미널 PATH 자동 구성.
+3. **Chocolatey(choco) 자동 사전 구성**:
    * 프로그램 실행 시 초코레이틀리를 백그라운드에서 자동 점검/사전 구성.
    * 네트워크 차단 또는 오프라인 시 공식 인스톨러 직접 다운로드로 부드러운 자동 폴백.
-3. **오탐지 없는 4단계 심층 감지 엔진**:
+4. **오탐지 없는 4단계 심층 감지 엔진**:
    * CLI / 시스템 레지스트리 / 로컬 AppData(`%LOCALAPPDATA%\Programs`) / 실행 바이너리 프로브까지 전수 검사하여, 이미 설치된 도구를 중복 설치하지 않고 똑똑하게 건너뜁니다.
-4. **창 꺼짐 없는 WSL2 & Ubuntu 24.04**:
+5. **창 꺼짐 없는 WSL2 & Ubuntu 24.04**:
    * 클릭 즉시 닫혀버리던 기존 단축 아이콘 대신 Keep-Alive 래퍼를 적용하여 리눅스 사용자 홈(`~`)으로 바로 안착.
-5. **Docker `docker.sock` 권한 에러 원천 차단**:
+6. **Docker `docker.sock` 권한 에러 원천 차단**:
    * WSL 내부에서 `sudo usermod -aG docker $USER`를 자동 적용하여 터미널에서 즉시 `docker run` 실행 가능.
-6. **VS Code 필수 개발 확장팩 자동 설치**:
+7. **VS Code 필수 개발 확장팩 자동 설치**:
    * 한국어 언어팩, WSL Remote 확장, Python 확장, GitLens 자동 구성.
-7. **WSL 내부 리눅스 개발 도구 프로비저닝**:
+8. **WSL 내부 리눅스 개발 도구 프로비저닝**:
    * `build-essential`, `git`, `python3-pip`, `python3-venv`, `ruff` 및 생산성 도구(`btop`, `tmux`, `ripgrep`, `fzf`) 원클릭 지원.
 
 ---
@@ -37,15 +39,16 @@
  * 실습실 PC는 공용이므로 퇴실 전 반드시 GitHub에 'git push' 하세요.
 --------------------------------------------------------------------------------
  [1] 전체 설치
- [2] Python 3.12
- [3] Visual Studio Code
- [4] Docker Desktop
- [5] WSL2 & Ubuntu 24.04 LTS
- [6] WSL 리눅스 개발 환경 설정
- [7] 터미널 파워 도구 팩
- [8] 다중 선택 설치
- [9] 환경변수 및 바로가기 복구
- [10] 설치 상태 검증
+ [2] Git for Windows
+ [3] Python 3.12
+ [4] Visual Studio Code
+ [5] Docker Desktop
+ [6] WSL2 & Ubuntu 24.04 LTS
+ [7] WSL 리눅스 개발 환경 설정
+ [8] 터미널 파워 도구 팩
+ [9] 다중 선택 설치
+ [10] 환경변수 및 바로가기 복구
+ [11] 설치 상태 검증
  [0] 종료
 ================================================================================
 ```

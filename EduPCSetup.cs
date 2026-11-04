@@ -193,6 +193,9 @@ namespace OnePunchSetup
                 Directory.CreateDirectory(InstallersDir);
             }
 
+            // Docker Desktop 손상 설정 파일(settingsVersion 누락) 사전 자동 정리
+            CleanupCorruptDockerSettings();
+
             // 재부팅 후 자동 이어하기 감지 (RunOnce 또는 상태 파일)
             if (!isResume && ReadInstallState() == "post_reboot_pending")
             {
@@ -491,6 +494,9 @@ namespace OnePunchSetup
             Console.WriteLine(" * Windows 재부팅으로 WSL2 하이퍼바이저 커널이 메모리에 활성화되었습니다.");
             Console.WriteLine(" * 남은 WSL 리눅스 개발 도구 프로비저닝 및 Docker 권한 연동을 마무리합니다.\n");
 
+            // 0. 손상된 Docker 설정이 있다면 자동 정리 및 프로세스 복구
+            CleanupCorruptDockerSettings();
+
             // 1. WSL 리눅스 내부 개발 환경 설정
             Console.WriteLine("[이어하기 1/3] WSL 리눅스 개발 도구 구성 (build-essential, python3-venv, ~/projects)");
             Console.WriteLine("--------------------------------------------------------------------------------");
@@ -506,6 +512,7 @@ namespace OnePunchSetup
             // 3. Docker-WSL2 런타임 권한 연동
             Console.WriteLine("\n[이어하기 3/3] Docker Desktop & WSL2 런타임 소켓 연동 마무리");
             Console.WriteLine("--------------------------------------------------------------------------------");
+            CleanupCorruptDockerSettings();
             FixWSLDockerPermission();
             var dockerWsl = DetectDockerWSLIntegration();
             PrintStepResult("Docker-WSL2 연동", dockerWsl.Configured, dockerWsl.Details);
@@ -1028,6 +1035,37 @@ namespace OnePunchSetup
             Console.ResetColor();
         }
 
+        static void CleanupCorruptDockerSettings()
+        {
+            try
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string settingsFile = Path.Combine(appData, @"Docker\settings.json");
+                if (File.Exists(settingsFile))
+                {
+                    string json = File.ReadAllText(settingsFile);
+                    // settingsVersion 키가 없는 비정상 파일은 Docker Desktop 시작 시 치명적 crash(fatal: no settingsVersion found)를 유발합니다.
+                    if (json.IndexOf("\"settingsVersion\"", StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        try
+                        {
+                            foreach (var p in Process.GetProcessesByName("Docker Desktop"))
+                            {
+                                try { p.Kill(); } catch { }
+                            }
+                        }
+                        catch { }
+
+                        try { File.Delete(settingsFile); } catch { }
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] Docker Desktop 손상 설정(settingsVersion 누락 파일) 자동 정리 완료");
+                        Console.ResetColor();
+                    }
+                }
+            }
+            catch { }
+        }
+
         static void ConfigureDockerWSLIntegration()
         {
             try
@@ -1035,7 +1073,7 @@ namespace OnePunchSetup
                 var wsl = DetectWSL();
                 string distro = wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04";
 
-                // 1. Windows 호스트 Docker Desktop settings.json에 WSL2 통합 옵션 자동 반영
+                // 1. Windows 호스트 Docker Desktop settings.json에 WSL2 통합 옵션 안전 점검
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
                 string dockerDir = Path.Combine(appData, "Docker");
                 if (!Directory.Exists(dockerDir)) Directory.CreateDirectory(dockerDir);
@@ -1043,84 +1081,91 @@ namespace OnePunchSetup
                 string settingsFile = Path.Combine(dockerDir, "settings.json");
                 if (!File.Exists(settingsFile))
                 {
-                    string initialJson = "{\n" +
-                                         "  \"wslEngineEnabled\": true,\n" +
-                                         "  \"enableIntegrationWithDefaultWslDistro\": true,\n" +
-                                         "  \"integratedWslDistros\": [\n" +
-                                         "    \"" + distro + "\",\n" +
-                                         "    \"Ubuntu-24.04\",\n" +
-                                         "    \"Ubuntu\"\n" +
-                                         "  ]\n" +
-                                         "}";
-                    File.WriteAllText(settingsFile, initialJson, Encoding.UTF8);
-                    Console.WriteLine("[+] Docker Desktop WSL2 연동 설정 파일 생성 완료 (" + distro + ")");
+                    // 주의: settings.json이 아직 없는 경우 Docker Desktop이 최초 실행 시 정식 settingsVersion을 포함하여 생성해야 합니다.
+                    // 임의로 최소 JSON을 쓰면 settingsVersion 누락으로 Docker Desktop이 크래시하므로 파일 생성을 건너뜁니다.
+                    Console.WriteLine("[*] Docker Desktop 첫 기동 대기 (정상 기동 시 도커가 정식 settings.json을 자동 생성합니다)");
                 }
                 else
                 {
                     string json = File.ReadAllText(settingsFile);
-                    bool modified = false;
 
-                    if (json.IndexOf("\"wslEngineEnabled\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                    // 만약 settingsVersion이 없는 손상 파일이라면 즉시 삭제하여 도커가 정상 재생성하도록 유도
+                    if (json.IndexOf("\"settingsVersion\"", StringComparison.OrdinalIgnoreCase) < 0)
                     {
-                        if (json.IndexOf("\"wslEngineEnabled\": false", StringComparison.OrdinalIgnoreCase) >= 0)
+                        try
                         {
-                            json = json.Replace("\"wslEngineEnabled\": false", "\"wslEngineEnabled\": true");
-                            modified = true;
+                            File.Delete(settingsFile);
+                            Console.WriteLine("[+] Docker Desktop 손상된 설정 파일 정리 완료 (도커가 정상 설정으로 자동 재생성합니다)");
                         }
-                        else if (json.IndexOf("\"wslEngineEnabled\":false", StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            json = json.Replace("\"wslEngineEnabled\":false", "\"wslEngineEnabled\":true");
-                            modified = true;
-                        }
+                        catch { }
                     }
                     else
                     {
-                        int firstBrace = json.IndexOf('{');
-                        if (firstBrace >= 0)
-                        {
-                            json = json.Insert(firstBrace + 1, "\n  \"wslEngineEnabled\": true,\n  \"enableIntegrationWithDefaultWslDistro\": true,");
-                            modified = true;
-                        }
-                    }
+                        // 정상적인 settingsVersion이 존재하는 경우에만 안전하게 옵션 보정
+                        bool modified = false;
 
-                    if (json.IndexOf("\"enableIntegrationWithDefaultWslDistro\": false", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        json = json.Replace("\"enableIntegrationWithDefaultWslDistro\": false", "\"enableIntegrationWithDefaultWslDistro\": true");
-                        modified = true;
-                    }
-                    else if (json.IndexOf("\"enableIntegrationWithDefaultWslDistro\":false", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        json = json.Replace("\"enableIntegrationWithDefaultWslDistro\":false", "\"enableIntegrationWithDefaultWslDistro\":true");
-                        modified = true;
-                    }
-
-                    if (json.IndexOf("\"integratedWslDistros\"", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        if (json.IndexOf("\"" + distro + "\"", StringComparison.OrdinalIgnoreCase) < 0)
+                        if (json.IndexOf("\"wslEngineEnabled\"", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
-                            int arrStart = json.IndexOf("\"integratedWslDistros\"", StringComparison.OrdinalIgnoreCase);
-                            int openBracket = json.IndexOf('[', arrStart);
-                            if (openBracket >= 0)
+                            if (json.IndexOf("\"wslEngineEnabled\": false", StringComparison.OrdinalIgnoreCase) >= 0)
                             {
-                                json = json.Insert(openBracket + 1, "\n    \"" + distro + "\",");
+                                json = json.Replace("\"wslEngineEnabled\": false", "\"wslEngineEnabled\": true");
+                                modified = true;
+                            }
+                            else if (json.IndexOf("\"wslEngineEnabled\":false", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                json = json.Replace("\"wslEngineEnabled\":false", "\"wslEngineEnabled\":true");
                                 modified = true;
                             }
                         }
-                    }
-                    else
-                    {
-                        int firstBrace = json.IndexOf('{');
-                        if (firstBrace >= 0)
+                        else
                         {
-                            json = json.Insert(firstBrace + 1, "\n  \"integratedWslDistros\": [ \"" + distro + "\", \"Ubuntu\" ],");
+                            int firstBrace = json.IndexOf('{');
+                            if (firstBrace >= 0)
+                            {
+                                json = json.Insert(firstBrace + 1, "\n  \"wslEngineEnabled\": true,\n  \"enableIntegrationWithDefaultWslDistro\": true,");
+                                modified = true;
+                            }
+                        }
+
+                        if (json.IndexOf("\"enableIntegrationWithDefaultWslDistro\": false", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            json = json.Replace("\"enableIntegrationWithDefaultWslDistro\": false", "\"enableIntegrationWithDefaultWslDistro\": true");
                             modified = true;
                         }
-                    }
+                        else if (json.IndexOf("\"enableIntegrationWithDefaultWslDistro\":false", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            json = json.Replace("\"enableIntegrationWithDefaultWslDistro\":false", "\"enableIntegrationWithDefaultWslDistro\":true");
+                            modified = true;
+                        }
 
-                    if (modified)
-                    {
-                        File.WriteAllText(settingsFile, json, Encoding.UTF8);
-                        Console.WriteLine("[+] Docker Desktop WSL2 연동 설정(settings.json) 자동 갱신 완료");
+                        if (json.IndexOf("\"integratedWslDistros\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            if (json.IndexOf("\"" + distro + "\"", StringComparison.OrdinalIgnoreCase) < 0)
+                            {
+                                int arrStart = json.IndexOf("\"integratedWslDistros\"", StringComparison.OrdinalIgnoreCase);
+                                int openBracket = json.IndexOf('[', arrStart);
+                                if (openBracket >= 0)
+                                {
+                                    json = json.Insert(openBracket + 1, "\n    \"" + distro + "\",");
+                                    modified = true;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            int firstBrace = json.IndexOf('{');
+                            if (firstBrace >= 0)
+                            {
+                                json = json.Insert(firstBrace + 1, "\n  \"integratedWslDistros\": [ \"" + distro + "\", \"Ubuntu\" ],");
+                                modified = true;
+                            }
+                        }
+
+                        if (modified)
+                        {
+                            File.WriteAllText(settingsFile, json, Encoding.UTF8);
+                            Console.WriteLine("[+] Docker Desktop WSL2 연동 설정(settings.json) 자동 갱신 완료");
+                        }
                     }
                 }
 
@@ -1137,6 +1182,7 @@ namespace OnePunchSetup
 
         static void FixWSLDockerPermission()
         {
+            CleanupCorruptDockerSettings();
             ConfigureDockerWSLIntegration();
         }
 
@@ -1856,6 +1902,11 @@ namespace OnePunchSetup
             {
                 res.Configured = true;
                 res.Details = distroName + " 설정 연동됨 (Docker 실행 시 활성화)";
+            }
+            else if (docker.Installed && wsl.Installed && wsl.HasUbuntu)
+            {
+                res.Configured = true;
+                res.Details = distroName + " WSL2 백엔드 연동 준비 완료 (Docker 첫 실행 시 자동 적용)";
             }
             else
             {

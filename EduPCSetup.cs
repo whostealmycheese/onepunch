@@ -77,9 +77,6 @@ namespace OnePunchSetup
                 Directory.CreateDirectory(InstallersDir);
             }
 
-            // 초코레이틀리(Chocolatey) 사전 자동 설치 조치
-            EnsureChocolateyInstalled();
-
             // 명령줄 인수로 번호나 옵션이 전달된 경우 즉시 실행 후 종료
             if (cliChoice != null)
             {
@@ -147,18 +144,12 @@ namespace OnePunchSetup
 
         static void PrintBanner()
         {
-            bool hasChoco = IsChocoAvailable();
-
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine("================================================================================");
             Console.WriteLine("                            [원펀치 (OnePunch) v3.0]                            ");
             Console.WriteLine("================================================================================");
             Console.ResetColor();
-            Console.Write(" * 패키지 엔진: ");
-            Console.ForegroundColor = hasChoco ? ConsoleColor.Green : ConsoleColor.Yellow;
-            Console.Write("Chocolatey [" + (hasChoco ? "준비 완료" : "설치 진행") + "]");
-            Console.ResetColor();
-            Console.WriteLine(" | 공식 인스톨러 자동 폴백 지원");
+            Console.WriteLine(" * 설치 엔진: 공식 고속 무인 인스톨러 (Direct Official Silent Engine)");
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.WriteLine(" * 실습실 PC는 공용이므로 퇴실 전 반드시 GitHub에 'git push' 하세요.");
             Console.ResetColor();
@@ -195,20 +186,7 @@ namespace OnePunchSetup
             switch (choice)
             {
                 case "1":
-                    Console.WriteLine("\n>>> [1. 전체 설치] 시작\n");
-                    PerformPreFlightChecks();
-                    ExecuteGit();
-                    ExecutePython();
-                    ExecuteVSCode();
-                    ExecuteWSL();
-                    ExecuteDocker();
-                    ExecuteDiscord();
-                    ProvisionWSLLinux("");
-                    InstallTerminalPowerTools("");
-                    RepairEnvironmentAndShortcuts();
-                    BroadcastEnvChange();
-                    ShowVerifyReport();
-                    PromptPostInstallReboot();
+                    RunFullInstallationPipeline();
                     break;
 
                 case "2":
@@ -280,6 +258,80 @@ namespace OnePunchSetup
                     Console.ResetColor();
                     break;
             }
+        }
+
+        static void RunFullInstallationPipeline()
+        {
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\n================================================================================");
+            Console.WriteLine("                   [원펀치 v3.0 올인원 전체 자동 설치 파이프라인]               ");
+            Console.WriteLine("================================================================================");
+            Console.ResetColor();
+
+            // 0. 사전 진단
+            Console.WriteLine("\n[단계 0/7] 시스템 환경 및 하드웨어 가상화 진단");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            PerformPreFlightChecks();
+
+            // 1. Git for Windows
+            Console.WriteLine("\n[단계 1/7] Git for Windows 설치 및 환경변수 등록");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            ExecuteGit();
+            var git = DetectGit();
+            PrintStepResult("Git for Windows", git.Installed, git.Version);
+
+            // 2. Python 3.12
+            Console.WriteLine("\n[단계 2/7] Python 3.12 설치 및 환경변수 등록");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            ExecutePython();
+            var py = DetectPython();
+            PrintStepResult("Python 3.12", py.Installed, py.Version);
+
+            // 3. Visual Studio Code & 필수 확장팩
+            Console.WriteLine("\n[단계 3/7] Visual Studio Code 및 필수 확장팩 구성");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            ExecuteVSCode();
+            var code = DetectVSCode();
+            PrintStepResult("Visual Studio Code", code.Installed, code.KoreanExt ? "한국어팩 적용됨" : "기본 설치됨");
+
+            // 4. WSL2 & Ubuntu 24.04 LTS (Docker 설치 전 필수 선행)
+            Console.WriteLine("\n[단계 4/7] WSL2 및 Ubuntu 24.04 LTS 가상화 환경 구성");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            ExecuteWSL();
+            var wsl = DetectWSL();
+            PrintStepResult("WSL2 / Ubuntu", wsl.Installed, wsl.HasUbuntu ? (wsl.DistroName + " 등록됨") : "WSL2 등록 대기 (재부팅 후 활성화)");
+
+            // 5. Docker Desktop 설치 및 WSL2 연동
+            Console.WriteLine("\n[단계 5/7] Docker Desktop 설치 및 WSL2 백엔드 연동");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            ExecuteDocker();
+            var docker = DetectDocker();
+            var dockerWsl = DetectDockerWSLIntegration();
+            PrintStepResult("Docker Desktop & WSL2", docker.Installed, dockerWsl.Configured ? "WSL2 통합 연동 완료" : "연동 설정 완료");
+
+            // 6. WSL 리눅스 내부 개발 환경 & 터미널 파워 도구
+            Console.WriteLine("\n[단계 6/7] WSL 리눅스 개발 환경 및 터미널 파워 도구 팩");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            ProvisionWSLLinux("");
+            InstallTerminalPowerTools("");
+
+            // 7. Discord 및 환경 정리
+            Console.WriteLine("\n[단계 7/7] Discord 설치 및 바로가기/환경변수 최종 정리");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            ExecuteDiscord();
+            RepairEnvironmentAndShortcuts();
+            BroadcastEnvChange();
+
+            // 최종 종합 리포트 및 재부팅 안내
+            ShowVerifyReport();
+            PromptPostInstallReboot();
+        }
+
+        static void PrintStepResult(string name, bool success, string detail)
+        {
+            Console.ForegroundColor = success ? ConsoleColor.Green : ConsoleColor.Yellow;
+            Console.WriteLine(string.Format("==> [{0}] {1}: {2}", success ? "성공" : "확인필요", name, detail));
+            Console.ResetColor();
         }
 
         static void RunMultiSelect()
@@ -371,7 +423,7 @@ namespace OnePunchSetup
 
         static void ExecuteGit()
         {
-            Console.WriteLine("\n[설치] Git 점검 및 설치");
+            Console.WriteLine("\n[설치] Git for Windows 점검 및 공식 설치");
 
             var detected = DetectGit();
             string gitCmdDir = @"C:\Program Files\Git\cmd";
@@ -385,38 +437,18 @@ namespace OnePunchSetup
             }
             else
             {
-                bool installed = false;
+                Console.WriteLine("[*] 공식 Git 인스톨러 다운로드 및 무인 설치 중...");
+                string gitVersion = "2.47.1";
+                string url = "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe";
+                string installer = Path.Combine(InstallersDir, "Git-" + gitVersion + "-64-bit.exe");
 
-                // 1. Chocolatey 우선 설치
-                if (IsChocoAvailable())
+                if (DownloadFileWithRetry(url, installer))
                 {
-                    Console.WriteLine("[*] Chocolatey로 Git 설치 중...");
-                    int code = RunProcess("choco.exe", "install git -y --no-progress", true);
-                    if (code == 0)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("[+] Chocolatey Git 설치 완료");
-                        Console.ResetColor();
-                        installed = true;
-                    }
-                }
-
-                // 2. 공식 인스톨러 폴백
-                if (!installed)
-                {
-                    Console.WriteLine("[*] 공식 Git 인스톨러 다운로드 및 설치 중...");
-                    string gitVersion = "2.47.1";
-                    string url = "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe";
-                    string installer = Path.Combine(InstallersDir, "Git-" + gitVersion + "-64-bit.exe");
-
-                    if (DownloadFileWithRetry(url, installer))
-                    {
-                        string args = "/VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS";
-                        RunProcess(installer, args, true);
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("[+] Git 설치 완료");
-                        Console.ResetColor();
-                    }
+                    string args = "/VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS";
+                    RunProcess(installer, args, true, 180000);
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("[+] Git for Windows 설치 완료");
+                    Console.ResetColor();
                 }
 
                 var fresh = DetectGit();
@@ -431,7 +463,7 @@ namespace OnePunchSetup
 
         static void ExecutePython()
         {
-            Console.WriteLine("\n[설치] Python 3.12 점검 및 설치");
+            Console.WriteLine("\n[설치] Python 3.12 점검 및 공식 설치");
 
             var detected = DetectPython();
             string targetDir = @"C:\Program Files\Python312";
@@ -445,38 +477,18 @@ namespace OnePunchSetup
             }
             else
             {
-                bool installed = false;
+                Console.WriteLine("[*] 공식 Python 인스톨러 다운로드 및 무인 설치 중...");
+                string pyVersion = "3.12.8";
+                string url = "https://www.python.org/ftp/python/" + pyVersion + "/python-" + pyVersion + "-amd64.exe";
+                string installer = Path.Combine(InstallersDir, "python-" + pyVersion + "-amd64.exe");
 
-                // 1. Chocolatey 우선 설치
-                if (IsChocoAvailable())
+                if (DownloadFileWithRetry(url, installer))
                 {
-                    Console.WriteLine("[*] Chocolatey로 Python 3 설치 중...");
-                    int code = RunProcess("choco.exe", "install python3 -y --no-progress", true);
-                    if (code == 0)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("[+] Chocolatey Python 설치 완료");
-                        Console.ResetColor();
-                        installed = true;
-                    }
-                }
-
-                // 2. 공식 인스톨러 폴백
-                if (!installed)
-                {
-                    Console.WriteLine("[*] 공식 인스톨러 다운로드 및 설치 중...");
-                    string pyVersion = "3.12.8";
-                    string url = "https://www.python.org/ftp/python/" + pyVersion + "/python-" + pyVersion + "-amd64.exe";
-                    string installer = Path.Combine(InstallersDir, "python-" + pyVersion + "-amd64.exe");
-
-                    if (DownloadFileWithRetry(url, installer))
-                    {
-                        string args = string.Format("/quiet InstallAllUsers=1 PrependPath=1 Include_test=0 Include_pip=1 TargetDir=\"{0}\"", targetDir);
-                        RunProcess(installer, args, true);
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("[+] Python 3.12 설치 완료");
-                        Console.ResetColor();
-                    }
+                    string args = string.Format("/quiet InstallAllUsers=1 PrependPath=1 Include_test=0 Include_pip=1 TargetDir=\"{0}\"", targetDir);
+                    RunProcess(installer, args, true, 180000);
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("[+] Python 3.12 설치 완료");
+                    Console.ResetColor();
                 }
 
                 var fresh = DetectPython();
@@ -505,7 +517,7 @@ namespace OnePunchSetup
 
         static void ExecuteVSCode()
         {
-            Console.WriteLine("\n[설치] Visual Studio Code 점검 및 설치");
+            Console.WriteLine("\n[설치] Visual Studio Code 점검 및 공식 설치");
 
             var detected = DetectVSCode();
             string targetDir = @"C:\Program Files\Microsoft VS Code";
@@ -521,37 +533,17 @@ namespace OnePunchSetup
             }
             else
             {
-                bool installed = false;
+                Console.WriteLine("[*] 공식 VS Code 인스톨러 다운로드 및 무인 설치 중...");
+                string url = "https://update.code.visualstudio.com/latest/win32-x64/stable";
+                string installer = Path.Combine(InstallersDir, "VSCodeSetup-x64.exe");
 
-                // 1. Chocolatey 우선 설치
-                if (IsChocoAvailable())
+                if (DownloadFileWithRetry(url, installer))
                 {
-                    Console.WriteLine("[*] Chocolatey로 VS Code 설치 중...");
-                    int code = RunProcess("choco.exe", "install vscode -y --no-progress", true);
-                    if (code == 0)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("[+] Chocolatey VS Code 설치 완료");
-                        Console.ResetColor();
-                        installed = true;
-                    }
-                }
-
-                // 2. 공식 인스톨러 폴백
-                if (!installed)
-                {
-                    Console.WriteLine("[*] 공식 인스톨러 다운로드 및 설치 중...");
-                    string url = "https://update.code.visualstudio.com/latest/win32-x64/stable";
-                    string installer = Path.Combine(InstallersDir, "VSCodeSetup-x64.exe");
-
-                    if (DownloadFileWithRetry(url, installer))
-                    {
-                        string args = "/VERYSILENT /NORESTART /MERGETASKS=!runcode,addtopath,desktopicon,quicklaunchicon";
-                        RunProcess(installer, args, true);
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("[+] VS Code 설치 완료");
-                        Console.ResetColor();
-                    }
+                    string args = "/VERYSILENT /NORESTART /MERGETASKS=!runcode,addtopath,desktopicon,quicklaunchicon";
+                    RunProcess(installer, args, true, 180000);
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("[+] VS Code 설치 완료");
+                    Console.ResetColor();
                 }
 
                 var fresh = DetectVSCode();
@@ -595,7 +587,7 @@ namespace OnePunchSetup
 
         static void ExecuteDocker()
         {
-            Console.WriteLine("\n[설치] Docker Desktop 점검 및 설치");
+            Console.WriteLine("\n[설치] Docker Desktop 점검 및 공식 설치");
 
             var detected = DetectDocker();
             string targetDir = @"C:\Program Files\Docker\Docker";
@@ -609,37 +601,17 @@ namespace OnePunchSetup
             }
             else
             {
-                bool installed = false;
+                Console.WriteLine("[*] 공식 Docker Desktop 인스톨러 다운로드 및 무인 설치 중 (WSL2 백엔드)...");
+                string url = "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe";
+                string installer = Path.Combine(InstallersDir, "DockerDesktopInstaller.exe");
 
-                // 1. Chocolatey 우선 설치
-                if (IsChocoAvailable())
+                if (DownloadFileWithRetry(url, installer))
                 {
-                    Console.WriteLine("[*] Chocolatey로 Docker Desktop 설치 중...");
-                    int code = RunProcess("choco.exe", "install docker-desktop -y --no-progress", true);
-                    if (code == 0)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("[+] Chocolatey Docker Desktop 설치 완료");
-                        Console.ResetColor();
-                        installed = true;
-                    }
-                }
-
-                // 2. 공식 인스톨러 폴백
-                if (!installed)
-                {
-                    Console.WriteLine("[*] 공식 인스톨러 다운로드 및 설치 중 (WSL2 백엔드)...");
-                    string url = "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe";
-                    string installer = Path.Combine(InstallersDir, "DockerDesktopInstaller.exe");
-
-                    if (DownloadFileWithRetry(url, installer))
-                    {
-                        string args = "install --quiet --accept-license --backend=wsl-2";
-                        RunProcess(installer, args, true);
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("[+] Docker Desktop 설치 완료");
-                        Console.ResetColor();
-                    }
+                    string args = "install --quiet --accept-license --backend=wsl-2";
+                    RunProcess(installer, args, true, 300000);
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("[+] Docker Desktop 설치 완료");
+                    Console.ResetColor();
                 }
 
                 var fresh = DetectDocker();
@@ -708,7 +680,7 @@ namespace OnePunchSetup
 
         static void ExecuteDiscord()
         {
-            Console.WriteLine("\n[설치] Discord 점검 및 설치");
+            Console.WriteLine("\n[설치] Discord 점검 및 공식 설치");
 
             var detected = DetectDiscord();
 
@@ -720,36 +692,16 @@ namespace OnePunchSetup
             }
             else
             {
-                bool installed = false;
+                Console.WriteLine("[*] 공식 Discord 인스톨러 다운로드 및 무인 설치 중...");
+                string url = "https://dl.discordapp.net/distro/app/stable/win/x86/DiscordSetup.exe";
+                string installer = Path.Combine(InstallersDir, "DiscordSetup.exe");
 
-                // 1. Chocolatey 우선 설치
-                if (IsChocoAvailable())
+                if (DownloadFileWithRetry(url, installer))
                 {
-                    Console.WriteLine("[*] Chocolatey로 Discord 설치 중...");
-                    int code = RunProcess("choco.exe", "install discord -y --no-progress", true);
-                    if (code == 0)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("[+] Chocolatey Discord 설치 완료");
-                        Console.ResetColor();
-                        installed = true;
-                    }
-                }
-
-                // 2. 공식 인스톨러 폴백
-                if (!installed)
-                {
-                    Console.WriteLine("[*] 공식 Discord 인스톨러 다운로드 및 설치 중...");
-                    string url = "https://dl.discordapp.net/distro/app/stable/win/x86/DiscordSetup.exe";
-                    string installer = Path.Combine(InstallersDir, "DiscordSetup.exe");
-
-                    if (DownloadFileWithRetry(url, installer))
-                    {
-                        RunProcess(installer, "-s", true);
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("[+] Discord 설치 완료");
-                        Console.ResetColor();
-                    }
+                    RunProcess(installer, "-s", true, 180000);
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("[+] Discord 설치 완료");
+                    Console.ResetColor();
                 }
             }
 
@@ -950,53 +902,6 @@ namespace OnePunchSetup
             {
                 string wtArgs = string.Format("/c start wt.exe wsl.exe ~ -d {0}", distroName);
                 CreateShortcut("Ubuntu (Windows Terminal)", target, wtArgs, icon, "Ubuntu in Windows Terminal");
-            }
-        }
-
-        static void EnsureChocolateyInstalled()
-        {
-            if (IsChocoAvailable()) return;
-
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("[*] Chocolatey(choco) 자동 사전 구성 중...");
-            Console.ResetColor();
-
-            try
-            {
-                string psScript = "[System.Net.ServicePointManager]::SecurityProtocol = 3072; " +
-                                  "iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))";
-
-                ProcessStartInfo psi = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Command \"" + psScript + "\"")
-                {
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-                var p = Process.Start(psi);
-                if (p != null) p.WaitForExit(60000);
-
-                string chocoBin = @"C:\ProgramData\chocolatey\bin";
-                if (Directory.Exists(chocoBin)) AddToSystemPath(chocoBin);
-
-                if (IsChocoAvailable())
-                {
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("[+] Chocolatey 준비 완료\n");
-                    Console.ResetColor();
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.DarkYellow;
-                    Console.WriteLine("[-] Chocolatey 자동 구성 건너뜀 (공식 인스톨러 모드로 동작합니다)\n");
-                    Console.ResetColor();
-                }
-            }
-            catch
-            {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("[-] Chocolatey 자동 구성 건너뜀 (공식 인스톨러 모드로 동작합니다)\n");
-                Console.ResetColor();
             }
         }
 
@@ -1706,16 +1611,6 @@ namespace OnePunchSetup
             return res;
         }
 
-        static bool IsChocoAvailable()
-        {
-            try
-            {
-                string outStr = RunProcessWithOutput("choco.exe", "--version").Trim();
-                return !string.IsNullOrEmpty(outStr) && char.IsDigit(outStr[0]);
-            }
-            catch { return false; }
-        }
-
         static bool DownloadFileWithRetry(string url, string destPath, int maxRetries = 3)
         {
             if (File.Exists(destPath))
@@ -1723,7 +1618,7 @@ namespace OnePunchSetup
                 FileInfo fi = new FileInfo(destPath);
                 if (fi.Length > 1024 * 1024)
                 {
-                    Console.WriteLine("[*] 기존 캐시 파일 발견 (" + (fi.Length / 1024 / 1024) + " MB): " + fi.Name + " (다운로드 생략)");
+                    Console.WriteLine("[*] 기존 캐시 파일 사용 (" + (fi.Length / 1024 / 1024) + " MB): " + fi.Name);
                     return true;
                 }
             }
@@ -1732,22 +1627,50 @@ namespace OnePunchSetup
             {
                 try
                 {
-                    Console.WriteLine(string.Format("[*] 다운로드 시도 ({0}/{1}): {2}", i, maxRetries, url));
+                    Console.WriteLine(string.Format("[*] 고속 CDN 다운로드 시도 ({0}/{1}): {2}", i, maxRetries, url));
                     using (WebClient client = new WebClient())
                     {
                         client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-                        client.DownloadFile(url, destPath);
+                        long lastReport = 0;
+                        client.DownloadProgressChanged += (s, e) =>
+                        {
+                            long now = Environment.TickCount;
+                            if (now - lastReport > 600 || e.ProgressPercentage == 100)
+                            {
+                                lastReport = now;
+                                if (e.TotalBytesToReceive > 0)
+                                {
+                                    Console.Write(string.Format("\r[*] 다운로드 진행률: {0}% ({1:0.0}MB / {2:0.0}MB)   ",
+                                        e.ProgressPercentage,
+                                        e.BytesReceived / 1048576.0,
+                                        e.TotalBytesToReceive / 1048576.0));
+                                }
+                                else
+                                {
+                                    Console.Write(string.Format("\r[*] 다운로드 수신 중: {0:0.0}MB   ", e.BytesReceived / 1048576.0));
+                                }
+                            }
+                        };
+
+                        client.DownloadFileTaskAsync(new Uri(url), destPath).GetAwaiter().GetResult();
+                        Console.WriteLine();
                     }
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("[+] 다운로드 성공: " + Path.GetFileName(destPath));
-                    Console.ResetColor();
-                    return true;
+
+                    if (File.Exists(destPath) && new FileInfo(destPath).Length > 0)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] 다운로드 성공: " + Path.GetFileName(destPath));
+                        Console.ResetColor();
+                        return true;
+                    }
                 }
                 catch (Exception ex)
                 {
+                    Console.WriteLine();
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.WriteLine(string.Format("[-] {0}차 다운로드 실패: {1}", i, ex.Message));
                     Console.ResetColor();
+                    try { if (File.Exists(destPath)) File.Delete(destPath); } catch { }
                     System.Threading.Thread.Sleep(2000);
                 }
             }
@@ -1845,19 +1768,20 @@ namespace OnePunchSetup
                 string publicLnk = Path.Combine(publicDesktop, name + ".lnk");
                 string userLnk = Path.Combine(userDesktop, name + ".lnk");
 
-                // 만약 공용 바탕화면(Public Desktop)에 이미 바로가기가 있다면,
-                // 사용자 바탕화면의 중복 바로가기를 지우고 추가 생성을 건너뜁니다 (아이콘 2개 중복 생성 원천 차단).
-                if (File.Exists(publicLnk))
+                // 1. 공용 바탕화면과 사용자 바탕화면에 모두 존재할 경우 사용자 바탕화면 중복 파일 정리
+                if (File.Exists(publicLnk) && File.Exists(userLnk))
                 {
-                    if (File.Exists(userLnk))
-                    {
-                        try { File.Delete(userLnk); } catch { }
-                    }
+                    try { File.Delete(userLnk); } catch { }
+                }
+
+                // 2. 이미 공용이나 사용자 바탕화면에 바로가기가 존재하는 경우 추가 생성 생략 (중복 방지)
+                if (File.Exists(publicLnk) || File.Exists(userLnk))
+                {
                     Console.WriteLine("[+] 바로가기 확인됨: " + name);
                     return;
                 }
 
-                // 공용에 없는 경우 사용자 바탕화면에 단 1개만 생성
+                // 3. 둘 다 없는 경우에만 개인 바탕화면에 1개 생성
                 string psCmd = string.Format(
                     "$w=New-Object -ComObject WScript.Shell; " +
                     "$s=$w.CreateShortcut('{0}'); $s.TargetPath='{1}'; if('{2}'){{$s.Arguments='{2}'}}; if('{3}'){{$s.IconLocation='{3}'}}; if('{4}'){{$s.Description='{4}'}}; $s.Save();",
@@ -1870,7 +1794,7 @@ namespace OnePunchSetup
                 };
                 var p = Process.Start(psi);
                 if (p != null) p.WaitForExit(5000);
-                Console.WriteLine("[+] 바로가기 생성: " + name);
+                Console.WriteLine("[+] 바로가기 생성 완료: " + name);
             }
             catch { }
         }
@@ -1899,20 +1823,32 @@ namespace OnePunchSetup
                 var p = Process.Start(psi);
                 if (wait && p != null)
                 {
-                    if (!p.WaitForExit(timeoutMs))
+                    int elapsed = 0;
+                    while (!p.HasExited)
                     {
-                        try { p.Kill(); } catch { }
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine("[경고] 작업 시간 초과(타임아웃)로 진행을 계속합니다: " + fileName);
-                        Console.ResetColor();
-                        return -1;
+                        if (p.WaitForExit(3000)) break;
+                        elapsed += 3000;
+                        if (elapsed >= timeoutMs)
+                        {
+                            try { p.Kill(); } catch { }
+                            Console.WriteLine();
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine("[경고] 작업 제한 시간({0}초) 초과로 프로세스를 정리하고 다음 단계로 진행합니다: {1}", timeoutMs / 1000, fileName);
+                            Console.ResetColor();
+                            return -1;
+                        }
+                        if (elapsed % 12000 == 0)
+                        {
+                            Console.Write(string.Format("\r[*] 작업 진행 중... ({0}초 경과)   ", elapsed / 1000));
+                        }
                     }
+                    if (elapsed >= 12000) Console.WriteLine();
                     return p.ExitCode;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("프로세스 실행 오류 (" + fileName + "): " + ex.Message);
+                Console.WriteLine("프로세스 실행 예외 (" + fileName + "): " + ex.Message);
             }
             return 0;
         }
@@ -1925,7 +1861,7 @@ namespace OnePunchSetup
                 {
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
-                    RedirectStandardError = true,
+                    RedirectStandardError = false,
                     CreateNoWindow = true
                 };
                 using (var p = Process.Start(psi))

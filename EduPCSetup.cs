@@ -74,6 +74,74 @@ namespace OnePunchSetup
             return sb.ToString().Trim();
         }
 
+        #region State Management & Post-Reboot Resume
+
+        static string GetStateFilePath()
+        {
+            string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OnePunch");
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+            return Path.Combine(dir, "state.txt");
+        }
+
+        static void SaveInstallState(string state)
+        {
+            try { File.WriteAllText(GetStateFilePath(), state, Encoding.UTF8); } catch { }
+        }
+
+        static string ReadInstallState()
+        {
+            try
+            {
+                string p = GetStateFilePath();
+                if (File.Exists(p)) return File.ReadAllText(p).Trim();
+            }
+            catch { }
+            return "";
+        }
+
+        static void ClearInstallState()
+        {
+            try
+            {
+                string p = GetStateFilePath();
+                if (File.Exists(p)) File.Delete(p);
+            }
+            catch { }
+        }
+
+        static void RegisterRunOnceResume()
+        {
+            try
+            {
+                string exePath = Process.GetCurrentProcess().MainModule.FileName;
+                using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\RunOnce", true))
+                {
+                    if (key != null)
+                    {
+                        key.SetValue("OnePunchResume", "\"" + exePath + "\" /resume");
+                    }
+                }
+            }
+            catch { }
+        }
+
+        static void UnregisterRunOnceResume()
+        {
+            try
+            {
+                using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\RunOnce", true))
+                {
+                    if (key != null)
+                    {
+                        key.DeleteValue("OnePunchResume", false);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        #endregion
+
         static void Main(string[] args)
         {
             try { Console.OutputEncoding = Encoding.UTF8; } catch { }
@@ -83,6 +151,7 @@ namespace OnePunchSetup
             ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768; // Tls12 | Tls11
 
             bool skipAdmin = false;
+            bool isResume = false;
             string cliChoice = null;
             foreach (var arg in args)
             {
@@ -90,9 +159,13 @@ namespace OnePunchSetup
                 {
                     skipAdmin = true;
                 }
+                else if (arg.Equals("/resume", StringComparison.OrdinalIgnoreCase) || arg.Equals("--resume", StringComparison.OrdinalIgnoreCase))
+                {
+                    isResume = true;
+                }
                 else if (arg.Equals("/check", StringComparison.OrdinalIgnoreCase) || arg.Equals("--check", StringComparison.OrdinalIgnoreCase))
                 {
-                    cliChoice = "12";
+                    cliChoice = "13";
                 }
                 else if (arg.Equals("/all", StringComparison.OrdinalIgnoreCase) || arg.Equals("--all", StringComparison.OrdinalIgnoreCase))
                 {
@@ -101,7 +174,7 @@ namespace OnePunchSetup
                 else
                 {
                     int n;
-                    if (int.TryParse(arg, out n) && n >= 0 && n <= 12)
+                    if (int.TryParse(arg, out n) && n >= 0 && n <= 13)
                     {
                         cliChoice = arg;
                     }
@@ -120,6 +193,18 @@ namespace OnePunchSetup
                 Directory.CreateDirectory(InstallersDir);
             }
 
+            // 재부팅 후 자동 이어하기 감지 (RunOnce 또는 상태 파일)
+            if (!isResume && ReadInstallState() == "post_reboot_pending")
+            {
+                isResume = true;
+            }
+
+            if (isResume)
+            {
+                RunPostRebootResumePipeline();
+                return;
+            }
+
             // 명령줄 인수로 번호나 옵션이 전달된 경우 즉시 실행 후 종료
             if (cliChoice != null)
             {
@@ -134,7 +219,7 @@ namespace OnePunchSetup
                 PrintMenu();
 
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Write("\n선택 [0-12]: ");
+                Console.Write("\n선택 [0-13]: ");
                 Console.ForegroundColor = ConsoleColor.White;
 
                 string choice = ReadLineWithVisibleEcho();
@@ -201,7 +286,7 @@ namespace OnePunchSetup
         static void PrintMenu()
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(" [1] 전체 설치");
+            Console.WriteLine(" [1] 전체 설치 (1단계 완료 후 가상화 재부팅 & 자동 이어하기) [추천]");
             Console.ResetColor();
             Console.WriteLine(" [2] Git for Windows");
             Console.WriteLine(" [3] Python 3.12");
@@ -212,8 +297,9 @@ namespace OnePunchSetup
             Console.WriteLine(" [8] WSL 리눅스 개발 환경 설정");
             Console.WriteLine(" [9] 터미널 파워 도구 팩");
             Console.WriteLine(" [10] 다중 선택 설치");
-            Console.WriteLine(" [11] 환경변수 및 바로가기 복구");
-            Console.WriteLine(" [12] 설치 상태 검증");
+            Console.WriteLine(" [11] Chocolatey 패키지 매니저 안전 설치");
+            Console.WriteLine(" [12] 환경변수 및 바로가기 복구");
+            Console.WriteLine(" [13] 설치 상태 검증");
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine(" [0] 종료");
             Console.ResetColor();
@@ -281,7 +367,13 @@ namespace OnePunchSetup
                     break;
 
                 case "11":
-                    Console.WriteLine("\n>>> [11. 환경변수 및 바로가기 복구] 시작\n");
+                    Console.WriteLine("\n>>> [11. Chocolatey 패키지 매니저 안전 설치] 시작\n");
+                    InstallChocolateySafe();
+                    BroadcastEnvChange();
+                    break;
+
+                case "12":
+                    Console.WriteLine("\n>>> [12. 환경변수 및 바로가기 복구] 시작\n");
                     RepairEnvironmentAndShortcuts();
                     BroadcastEnvChange();
                     Console.ForegroundColor = ConsoleColor.Green;
@@ -289,14 +381,14 @@ namespace OnePunchSetup
                     Console.ResetColor();
                     break;
 
-                case "12":
-                    Console.WriteLine("\n>>> [12. 설치 상태 검증] 시작\n");
+                case "13":
+                    Console.WriteLine("\n>>> [13. 설치 상태 검증] 시작\n");
                     ShowVerifyReport();
                     break;
 
                 default:
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("잘못된 번호입니다. [0-12] 사이 숫자를 입력하세요.");
+                    Console.WriteLine("잘못된 번호입니다. [0-13] 사이 숫자를 입력하세요.");
                     Console.ResetColor();
                     break;
             }
@@ -306,67 +398,162 @@ namespace OnePunchSetup
         {
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine("\n================================================================================");
-            Console.WriteLine("                   [원펀치 v3.0 올인원 전체 자동 설치 파이프라인]               ");
+            Console.WriteLine("     [원펀치 v3.0 1단계: Windows 개발 환경 및 가상화/Docker 구축 파이프라인]    ");
             Console.WriteLine("================================================================================");
             Console.ResetColor();
 
-            // 0. 사전 진단
-            Console.WriteLine("\n[단계 0/7] 시스템 환경 및 하드웨어 가상화 진단");
-            Console.WriteLine("--------------------------------------------------------------------------------");
-            PerformPreFlightChecks();
-
             // 1. Git for Windows
-            Console.WriteLine("\n[단계 1/7] Git for Windows 설치 및 환경변수 등록");
+            Console.WriteLine("\n[1단계] Git for Windows 설치 및 환경변수 등록");
             Console.WriteLine("--------------------------------------------------------------------------------");
             ExecuteGit();
             var git = DetectGit();
             PrintStepResult("Git for Windows", git.Installed, git.Version);
 
             // 2. Python 3.12
-            Console.WriteLine("\n[단계 2/7] Python 3.12 설치 및 환경변수 등록");
+            Console.WriteLine("\n[2단계] Python 3.12 설치 및 환경변수 등록");
             Console.WriteLine("--------------------------------------------------------------------------------");
             ExecutePython();
             var py = DetectPython();
             PrintStepResult("Python 3.12", py.Installed, py.Version);
 
             // 3. Visual Studio Code & 필수 확장팩
-            Console.WriteLine("\n[단계 3/7] Visual Studio Code 및 필수 확장팩 구성");
+            Console.WriteLine("\n[3단계] Visual Studio Code 및 필수 확장팩 구성");
             Console.WriteLine("--------------------------------------------------------------------------------");
             ExecuteVSCode();
             var code = DetectVSCode();
             PrintStepResult("Visual Studio Code", code.Installed, code.KoreanExt ? "한국어팩 적용됨" : "기본 설치됨");
 
-            // 4. WSL2 & Ubuntu 24.04 LTS (Docker 설치 전 필수 선행)
-            Console.WriteLine("\n[단계 4/7] WSL2 및 Ubuntu 24.04 LTS 가상화 환경 구성");
+            // 4. Discord
+            Console.WriteLine("\n[4단계] Discord 공식 설치");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            ExecuteDiscord();
+            var discord = DetectDiscord();
+            PrintStepResult("Discord", discord.Installed, discord.Version);
+
+            // 5. 하드웨어 가상화 진단 (VT-x / AMD SVM)
+            Console.WriteLine("\n[5단계] CPU 하드웨어 가상화 (VT-x / AMD SVM) 진단");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            bool biosVirt = false;
+            try { biosVirt = IsProcessorFeaturePresent(21); } catch { }
+            if (biosVirt)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("[+] CPU 하드웨어 가상화(VT-x / AMD SVM) 지원 확인됨");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("[주의] CPU 하드웨어 가상화(VT-x / AMD SVM)가 BIOS에서 비활성화되어 있을 수 있습니다.");
+                Console.WriteLine("       (WSL2/Docker 사용을 위해 부팅 시 BIOS(F2/Del)에서 Virtualization을 활성화해야 합니다)");
+                Console.ResetColor();
+            }
+
+            // 6. WSL2 & Ubuntu 24.04 LTS (가상화 플랫폼 + 배포판 등록)
+            Console.WriteLine("\n[6단계] WSL2 및 Ubuntu 24.04 LTS 가상화 플랫폼 활성화");
             Console.WriteLine("--------------------------------------------------------------------------------");
             ExecuteWSL();
             var wsl = DetectWSL();
             PrintStepResult("WSL2 / Ubuntu", wsl.Installed, wsl.HasUbuntu ? (wsl.DistroName + " 등록됨") : "WSL2 등록 대기 (재부팅 후 활성화)");
 
-            // 5. Docker Desktop 설치 및 WSL2 연동
-            Console.WriteLine("\n[단계 5/7] Docker Desktop 설치 및 WSL2 백엔드 연동");
+            // 7. Docker Desktop (WSL2 백엔드로 무인 설치)
+            Console.WriteLine("\n[7단계] Docker Desktop 공식 설치 (WSL2 백엔드)");
             Console.WriteLine("--------------------------------------------------------------------------------");
             ExecuteDocker();
             var docker = DetectDocker();
+            PrintStepResult("Docker Desktop", docker.Installed, docker.Path);
+
+            // 8. Docker-WSL2 연동 (settings.json 자동 구성)
+            Console.WriteLine("\n[8단계] Docker Desktop WSL2 연동 자동 구성");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            ConfigureDockerWSLIntegration();
             var dockerWsl = DetectDockerWSLIntegration();
-            PrintStepResult("Docker Desktop & WSL2", docker.Installed, dockerWsl.Configured ? "WSL2 통합 연동 완료" : "연동 설정 완료");
+            PrintStepResult("Docker-WSL2 연동", dockerWsl.Configured, dockerWsl.Details);
 
-            // 6. WSL 리눅스 내부 개발 환경 & 터미널 파워 도구
-            Console.WriteLine("\n[단계 6/7] WSL 리눅스 개발 환경 및 터미널 파워 도구 팩");
-            Console.WriteLine("--------------------------------------------------------------------------------");
-            ProvisionWSLLinux("");
-            InstallTerminalPowerTools("");
-
-            // 7. Discord 및 환경 정리
-            Console.WriteLine("\n[단계 7/7] Discord 설치 및 바로가기/환경변수 최종 정리");
-            Console.WriteLine("--------------------------------------------------------------------------------");
-            ExecuteDiscord();
             RepairEnvironmentAndShortcuts();
             BroadcastEnvChange();
 
-            // 최종 종합 리포트 및 재부팅 안내
-            ShowVerifyReport();
+            // 9. 가상화 재부팅 상태 저장 및 재부팅 요청
+            SaveInstallState("post_reboot_pending");
+            RegisterRunOnceResume();
             PromptPostInstallReboot();
+        }
+
+        static void RunPostRebootResumePipeline()
+        {
+            SafeClear();
+            PrintBanner();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\n================================================================================");
+            Console.WriteLine("          [원펀치 v3.0 2단계: PC 재부팅 후 자동 이어하기 (Resume)]             ");
+            Console.WriteLine("================================================================================");
+            Console.ResetColor();
+            Console.WriteLine(" * Windows 재부팅으로 WSL2 하이퍼바이저 커널이 메모리에 활성화되었습니다.");
+            Console.WriteLine(" * 남은 WSL 리눅스 개발 도구 프로비저닝 및 Docker 권한 연동을 마무리합니다.\n");
+
+            // 1. WSL 리눅스 내부 개발 환경 설정
+            Console.WriteLine("[이어하기 1/3] WSL 리눅스 개발 도구 구성 (build-essential, python3-venv, ~/projects)");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            ProvisionWSLLinux("");
+            var wsl = DetectWSL();
+            PrintStepResult("WSL 리눅스 환경", wsl.Installed && wsl.HasUbuntu, wsl.DistroName + " 개발 환경 구성 완료");
+
+            // 2. 터미널 파워 도구 팩
+            Console.WriteLine("\n[이어하기 2/3] 터미널 파워 도구 팩 설치 (btop, tmux, ripgrep, fzf, zoxide, tldr)");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            InstallTerminalPowerTools("");
+
+            // 3. Docker-WSL2 런타임 권한 연동
+            Console.WriteLine("\n[이어하기 3/3] Docker Desktop & WSL2 런타임 소켓 연동 마무리");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            FixWSLDockerPermission();
+            var dockerWsl = DetectDockerWSLIntegration();
+            PrintStepResult("Docker-WSL2 연동", dockerWsl.Configured, dockerWsl.Details);
+
+            // 상태 정리
+            ClearInstallState();
+            UnregisterRunOnceResume();
+            RepairEnvironmentAndShortcuts();
+            BroadcastEnvChange();
+
+            // 최종 종합 검증 리포트
+            ShowVerifyReport();
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("\n[축하합니다!] 모든 교육장 PC 환경 구축 및 연동이 100% 완료되었습니다!");
+            Console.ResetColor();
+
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("\n종료하려면 아무 키나 누르세요...");
+            Console.ResetColor();
+            SafeReadKey();
+        }
+
+        static void InstallChocolateySafe()
+        {
+            Console.WriteLine("\n[설치] Chocolatey 패키지 매니저 안전 설치");
+
+            string chocoBin = @"C:\ProgramData\chocolatey\bin";
+            if (Directory.Exists(chocoBin) && File.Exists(Path.Combine(chocoBin, "choco.exe")))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("[-] Chocolatey가 이미 설치되어 있습니다: " + chocoBin);
+                Console.ResetColor();
+                AddToSystemPath(chocoBin);
+                return;
+            }
+
+            Console.WriteLine("[*] Chocolatey 공식 파워셸 설치 스크립트 실행 중 (무인 모드)...");
+            string psCmd = "[System.Net.ServicePointManager]::SecurityProtocol = 3072; " +
+                           "iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))";
+            int code = RunProcess("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Command \"" + psCmd + "\"", true, 180000);
+            if (Directory.Exists(chocoBin)) AddToSystemPath(chocoBin);
+            if (code == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("[+] Chocolatey 설치 및 시스템 PATH 등록 완료");
+                Console.ResetColor();
+            }
         }
 
         static void PrintStepResult(string name, bool success, string detail)
@@ -387,6 +574,7 @@ namespace OnePunchSetup
             Console.WriteLine("  7: Discord");
             Console.WriteLine("  8: WSL 리눅스 개발 환경 설정");
             Console.WriteLine("  9: 터미널 파워 도구 팩");
+            Console.WriteLine("  11: Chocolatey 패키지 매니저 안전 설치");
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write("\n설치할 번호를 쉼표로 입력 (예: 2,3,7 또는 4,5,6): ");
             Console.ForegroundColor = ConsoleColor.White;
@@ -401,11 +589,12 @@ namespace OnePunchSetup
             if (selected.Contains("2")) ExecuteGit();
             if (selected.Contains("3")) ExecutePython();
             if (selected.Contains("4")) ExecuteVSCode();
+            if (selected.Contains("7")) ExecuteDiscord();
             if (selected.Contains("6")) ExecuteWSL();
             if (selected.Contains("5")) ExecuteDocker();
-            if (selected.Contains("7")) ExecuteDiscord();
             if (selected.Contains("8")) ProvisionWSLLinux("");
             if (selected.Contains("9")) InstallTerminalPowerTools("");
+            if (selected.Contains("11")) InstallChocolateySafe();
 
             RepairEnvironmentAndShortcuts();
             BroadcastEnvChange();
@@ -2017,9 +2206,10 @@ namespace OnePunchSetup
             Console.WriteLine("                    [중요] 설치 완료 및 PC 재부팅 안내                          ");
             Console.WriteLine("================================================================================");
             Console.ResetColor();
-            Console.WriteLine(" * WSL2 및 Docker Desktop의 가상화 하이퍼바이저 엔진은 Windows 재부팅 후 로드됩니다.");
-            Console.WriteLine(" * 만약 재부팅 후에도 '가상화 기능' 에러가 발생한다면, PC 전원을 켤 때 BIOS(F2/Del)");
-            Console.WriteLine("   설정에서 Intel Virtual Technology(VT-x) 또는 AMD SVM을 'Enabled'로 변경해주세요.");
+            Console.WriteLine(" * Windows 기본 개발 도구(Git, Python, VS Code, Discord) 설치가 완료되었습니다.");
+            Console.WriteLine(" * WSL2 및 Docker Desktop 가상화 엔진은 Windows 재부팅 후 커널이 활성화됩니다.");
+            Console.WriteLine(" * [자동 이어하기] 재부팅 후 OnePunch가 자동 실행되어 남은 리눅스 개발 도구를 마무리합니다.");
+            Console.WriteLine(" * 재부팅 후에도 가상화 오류 시 부팅 중 BIOS(F2/Del)에서 VT-x/SVM을 활성화하세요.");
             Console.WriteLine("--------------------------------------------------------------------------------");
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write(" >> 지금 바로 PC를 다시 시작하시겠습니까? [Y/N]: ");
@@ -2047,7 +2237,7 @@ namespace OnePunchSetup
                     else if (key.Key == ConsoleKey.N || c == 'N' || key.Key == ConsoleKey.Enter || key.Key == ConsoleKey.Escape)
                     {
                         Console.ForegroundColor = ConsoleColor.DarkYellow;
-                        Console.WriteLine("\n\n[*] 재부팅을 보류합니다. 가상화 사용 전 반드시 수동으로 PC를 재부팅해주세요.");
+                        Console.WriteLine("\n\n[*] 재부팅을 보류합니다. 나중에 PC를 재부팅하시면 남은 리눅스 설정이 자동으로 이어집니다.");
                         Console.ResetColor();
                         break;
                     }

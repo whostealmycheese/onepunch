@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>원펀치 (OnePunch) - 코딩 교육생을 위한 원클릭 개발 환경 세팅기</title>
+  <meta name="description" content="WSL2 Ubuntu 24.04, Docker Desktop, Python 3.12, VS Code를 단 한 번의 클릭으로 무인 설치하는 초경량 세팅 도구">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/png" href="icon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+  <style>
+    body { font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+    .gradient-text {
+      background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 50%, #EC4899 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-glow {
+      background: radial-gradient(circle at 50% 20%, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 70%);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-blue-600 selection:text-white">
+
+  <!-- Header / Navigation -->
+  <header class="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800/80">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-xl shadow-lg shadow-blue-500/20">
+          🥊
+        </div>
+        <div>
+          <span class="font-bold text-lg tracking-tight text-white">원펀치 <span class="text-blue-400 font-semibold text-sm">OnePunch</span></span>
+          <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-medium border border-blue-500/30">v3.0</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
+        <a href="#features" class="hover:text-blue-400 transition-colors">주요 기능</a>
+        <a href="#guide" class="hover:text-blue-400 transition-colors">사용 방법</a>
+        <a href="#faq" class="hover:text-blue-400 transition-colors">자주 묻는 질문</a>
+        <a href="#feedback" class="hover:text-blue-400 transition-colors flex items-center gap-1.5">
+          <span>버그 제보 & 댓글</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        </a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <a href="downloads/OnePunch.exe" download="OnePunch.exe" class="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold shadow-lg shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+          <i class="fa-solid fa-download"></i>
+          <span>다운로드 (50KB)</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="relative hero-glow pt-16 pb-20 md:pt-24 md:pb-32 overflow-hidden border-b border-slate-900">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+      
+      <!-- Top Pill -->
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-300 mb-8 shadow-inner">
+        <span class="flex h-2 w-2 rounded-full bg-blue-500"></span>
+        <span>Windows 10 / 11 64-bit 지원</span>
+        <span class="text-slate-600">|</span>
+        <span class="text-blue-400 font-medium">50KB 단일 실행 파일 (외부 의존성 제로)</span>
+      </div>
+
+      <!-- Main Headline -->
+      <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white mb-6 leading-tight">
+        코딩 교육생 동기들을 위한,<br class="hidden sm:inline" />
+        개발 환경 세팅 <span class="gradient-text">원펀치</span>로 5분 컷!
+      </h1>
+
+      <p class="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+        수업 따라가기도 바쁜데 파이썬, WSL, 도커 환경변수 삽질은 이제 그만!<br class="hidden sm:inline"/>
+        교육생 입장에서 직접 겪었던 설치 에러들을 <strong class="text-slate-200">단 한 번의 클릭</strong>으로 깔끔하게 해결해 줍니다.
+      </p>
+
+      <!-- CTA Buttons -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14">
+        <a href="downloads/OnePunch.exe" download="OnePunch.exe" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-lg shadow-xl shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+          <i class="fa-solid fa-download text-xl"></i>
+          <span>OnePunch.exe 다운로드</span>
+          <span class="text-xs py-0.5 px-2 rounded-full bg-white/20 font-normal">v3.0 (50KB)</span>
+        </a>
+        <a href="#feedback" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-base border border-slate-800 transition-all">
+          <i class="fa-regular fa-comment-dots"></i>
+          <span>버그 제보 & 피드백</span>
+        </a>
+      </div>
+
+      <!-- Live Terminal Preview Simulation -->
+      <div class="max-w-2xl mx-auto rounded-xl bg-slate-900/90 border border-slate-800 shadow-2xl text-left overflow-hidden">
+        <div class="px-4 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-rose-500/80"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+            <span class="ml-2 text-xs text-slate-400 font-mono">cmd.exe - 원펀치 v3.0</span>
+          </div>
+          <span class="text-xs text-slate-500 font-mono">Administrator</span>
+        </div>
+        <div class="p-5 font-mono text-xs sm:text-sm text-slate-300 space-y-2">
+          <p class="text-cyan-400 font-bold">================== [원펀치 (OnePunch) v3.0] ==================</p>
+          <p class="text-emerald-400">* 패키지 엔진: Chocolatey [준비 완료] | 공식 인스톨러 자동 폴백 지원</p>
+          <div class="py-1 text-slate-400 border-y border-slate-800/80 my-2 space-y-1">
+            <p><span class="text-emerald-400 font-bold">[1]</span> 전체 설치</p>
+            <p><span class="text-slate-200">[2]</span> Python 3.12</p>
+            <p><span class="text-slate-200">[3]</span> Visual Studio Code</p>
+            <p><span class="text-slate-200">[4]</span> Docker Desktop</p>
+            <p><span class="text-slate-200">[5]</span> WSL2 & Ubuntu 24.04 LTS</p>
+            <p><span class="text-slate-200">[6]</span> WSL 리눅스 개발 환경 설정</p>
+            <p><span class="text-slate-200">[7]</span> 터미널 파워 도구 팩</p>
+            <p><span class="text-slate-200">[8]</span> 다중 선택 설치</p>
+            <p><span class="text-slate-200">[10]</span> 설치 상태 검증</p>
+          </div>
+          <p class="text-yellow-400">선택 [0-10]: <span class="text-white animate-pulse">1_</span></p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section id="features" class="py-20 bg-slate-950 border-b border-slate-900">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <h2 class="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">KEY FEATURES</h2>
+        <h3 class="text-3xl font-extrabold text-white">교육생 시점에서 겪은 삽질을 한 방에 해결</h3>
+        <p class="text-slate-400 text-sm mt-3">수업 첫날부터 환경 설정 에러 때문에 진 빠지지 않도록, 직접 겪어보고 다듬은 맞춤 기능들입니다.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Feature 1 -->
+        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-blue-500/50 transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center text-xl mb-4 border border-blue-500/20">
+            <i class="fa-brands fa-linux"></i>
+          </div>
+          <h4 class="text-lg font-bold text-white mb-2">창 꺼짐 없는 WSL2 & Ubuntu</h4>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            클릭 즉시 닫히던 기존 바로가기 문제 해결! Keep-Alive 래퍼를 적용하여 리눅스 사용자 홈(<code class="text-blue-300">~</code>)으로 바로 연결되는 전용 바탕화면 아이콘을 생성합니다.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-indigo-500/50 transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xl mb-4 border border-indigo-500/20">
+            <i class="fa-brands fa-docker"></i>
+          </div>
+          <h4 class="text-lg font-bold text-white mb-2">Docker Desktop & 권한 자동 세팅</h4>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            WSL2 백엔드로 자동 설치하며, 설치 후 자주 발생하는 <code class="text-indigo-300">docker.sock permission denied</code> 에러를 방지하기 위해 사용자를 docker 그룹에 자동 등록합니다.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-purple-500/50 transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-xl mb-4 border border-purple-500/20">
+            <i class="fa-brands fa-python"></i>
+          </div>
+          <h4 class="text-lg font-bold text-white mb-2">Python 3.12 전역 환경변수</h4>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            WindowsApps Store 스텁을 무력화하고 전역 시스템 PATH에 등록하여 새 CMD나 PowerShell 어디서든 즉시 <code class="text-purple-300">python</code> 및 <code class="text-purple-300">pip</code> 명령을 실행할 수 있습니다.
+          </p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-sky-500/50 transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center text-xl mb-4 border border-sky-500/20">
+            <i class="fa-solid fa-code"></i>
+          </div>
+          <h4 class="text-lg font-bold text-white mb-2">VS Code 필수 확장 4종 자동 설치</h4>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            한국어 언어팩, WSL Remote 확장, Python 확장, GitLens까지 무인으로 자동 설치하여 수업 시작 즉시 코딩이 가능한 완벽한 IDE 환경을 제공합니다.
+          </p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/50 transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4 border border-emerald-500/20">
+            <i class="fa-solid fa-terminal"></i>
+          </div>
+          <h4 class="text-lg font-bold text-white mb-2">리눅스 패키지 & 파워 툴 프로비저닝</h4>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            Ubuntu 내부에 <code class="text-emerald-300">build-essential</code>, <code class="text-emerald-300">python3-venv</code>, <code class="text-emerald-300">ruff</code> 및 생산성 도구(<code class="text-emerald-300">btop, tmux, ripgrep, fzf</code>)를 일괄 구성합니다.
+          </p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-amber-500/50 transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl mb-4 border border-amber-500/20">
+            <i class="fa-solid fa-bolt"></i>
+          </div>
+          <h4 class="text-lg font-bold text-white mb-2">초코레이틀리 자동 사전 설치</h4>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            실행 시 백그라운드에서 Chocolatey를 자동 구성하여 가장 빠르고 안정적인 패키지 관리를 제공하며, 오프라인 시에도 공식 인스톨러로 부드럽게 자동 폴백합니다.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Step-by-Step Guide -->
+  <section id="guide" class="py-20 bg-slate-900/30 border-b border-slate-900">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">HOW TO USE</h2>
+        <h3 class="text-3xl font-extrabold text-white">단 3단계로 끝나는 개발 환경 세팅</h3>
+      </div>
+
+      <div class="space-y-6">
+        <div class="flex items-start gap-5 p-6 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <div class="w-10 h-10 rounded-full bg-blue-600/20 text-blue-400 font-bold flex items-center justify-center border border-blue-500/30 shrink-0">
+            1
+          </div>
+          <div>
+            <h4 class="text-lg font-bold text-white mb-1">OnePunch.exe 다운로드</h4>
+            <p class="text-sm text-slate-400">
+              상단의 다운로드 버튼을 클릭하거나 USB로 받아서 개인 PC 또는 교육장 PC에 저장합니다. (용량: 약 50KB)
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-5 p-6 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <div class="w-10 h-10 rounded-full bg-indigo-600/20 text-indigo-400 font-bold flex items-center justify-center border border-indigo-500/30 shrink-0">
+            2
+          </div>
+          <div>
+            <h4 class="text-lg font-bold text-white mb-1">관리자 권한으로 실행</h4>
+            <p class="text-sm text-slate-400">
+              프로그램을 더블 클릭합니다. UAC(사용자 계정 컨트롤) 승인 창이 뜨면 <strong>'예'</strong>를 눌러 관리자 권한을 승인합니다.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-5 p-6 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <div class="w-10 h-10 rounded-full bg-emerald-600/20 text-emerald-400 font-bold flex items-center justify-center border border-emerald-500/30 shrink-0">
+            3
+          </div>
+          <div>
+            <h4 class="text-lg font-bold text-white mb-1">메뉴에서 [1] 입력 후 엔터</h4>
+            <p class="text-sm text-slate-400">
+              콘솔 메뉴에서 <code class="text-emerald-300 font-bold">1</code>을 입력하고 엔터를 누르면 모든 도구가 자동으로 무인 설치됩니다.
+              이미 설치되어 있는 도구는 4단계 심층 감지로 건너뛰므로 안심하세요!
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bug Report & Comment Board -->
+  <section id="feedback" class="py-20 bg-slate-950 border-b border-slate-900">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+      
+      <div class="text-center mb-12">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold mb-3">
+          <i class="fa-solid fa-bug"></i>
+          <span>실시간 피드백 & 버그 리포트</span>
+        </div>
+        <h3 class="text-3xl font-extrabold text-white">동기들의 버그 제보 & 피드백</h3>
+        <p class="text-slate-400 text-sm mt-2">개인 노트북이나 교육장 PC에서 설치 중 안 되는 점, 에러 메시지, 건의사항을 편하게 남겨주세요!</p>
+      </div>
+
+      <!-- Feedback Form Card -->
+      <div class="p-6 sm:p-8 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl mb-10">
+        <form id="commentForm" onsubmit="handleCommentSubmit(event)" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">작성자 / 닉네임</label>
+              <input type="text" id="authorInput" required placeholder="예: 3기 수강생 홍길동" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">분류</label>
+              <select id="categoryInput" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+                <option value="bug">🐞 버그 제보</option>
+                <option value="feature">💡 기능 제안</option>
+                <option value="question">❓ 설치 질문</option>
+                <option value="praise">💬 사용 후기</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">OS 환경</label>
+              <select id="osInput" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+                <option value="Windows 11 (64bit)">Windows 11 (64bit)</option>
+                <option value="Windows 10 (64bit)">Windows 10 (64bit)</option>
+                <option value="기타 / 확인불가">기타 / 확인불가</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">제목</label>
+            <input type="text" id="titleInput" required placeholder="예: Docker 설치 후 재부팅 시 가상화 오류 현상" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">상세 내용 (에러 메시지 및 발생 과정)</label>
+            <textarea id="contentInput" required rows="4" placeholder="발생한 에러 내용이나 PC 사양, 원하시는 개선 사항을 자유롭게 적어주세요." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none"></textarea>
+          </div>
+
+          <div class="flex items-center justify-between pt-2">
+            <span class="text-xs text-slate-500">
+              <i class="fa-solid fa-shield-halved mr-1"></i> 등록된 댓글은 브라우저에 즉시 저장 및 공유됩니다.
+            </span>
+            <button type="submit" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+              <i class="fa-solid fa-paper-plane"></i>
+              <span>등록하기</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold text-white">등록된 댓글</span>
+          <span id="commentCount" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">0</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-xs">
+          <button onclick="filterCategory('all')" class="filter-btn active px-3 py-1 rounded-lg bg-blue-600 text-white font-medium">전체</button>
+          <button onclick="filterCategory('bug')" class="filter-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300">버그 제보</button>
+          <button onclick="filterCategory('feature')" class="filter-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300">기능 제안</button>
+          <button onclick="filterCategory('question')" class="filter-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300">질문</button>
+          <button onclick="filterCategory('praise')" class="filter-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300">후기</button>
+        </div>
+      </div>
+
+      <!-- Comments List Container -->
+      <div id="commentsList" class="space-y-3">
+        <!-- Rendered dynamically by JavaScript -->
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section id="faq" class="py-20 bg-slate-900/40">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">FAQ</h2>
+        <h3 class="text-3xl font-extrabold text-white">자주 묻는 질문</h3>
+      </div>
+
+      <div class="space-y-4">
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+          <h4 class="font-bold text-white text-base mb-2">Q. 이미 파이썬이나 VS Code가 설치되어 있는 PC는 어떻게 되나요?</h4>
+          <p class="text-sm text-slate-400">
+            원펀치는 4단계 심층 감지 엔진을 내장하고 있어 기존 설치 여부와 버전을 정확히 파악합니다. 이미 올바르게 설치된 프로그램은 중복 설치하지 않고 건너뛰며, 누락된 환경변수(PATH)와 한국어 확장팩 등 부족한 부분만 똑똑하게 보완합니다.
+          </p>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+          <h4 class="font-bold text-white text-base mb-2">Q. 실습실 PC에 인터넷이 느리거나 패키지 매니저가 안 깔려 있으면요?</h4>
+          <p class="text-sm text-slate-400">
+            원펀치는 실행 즉시 초코레이틀리(Chocolatey)를 자동 점검하여 사전 구성합니다. 만약 네트워크 문제로 초코레이틀리 설치가 실패하더라도 각 도구의 공식 인스톨러(Python.org, Microsoft, Docker) 직접 다운로드 방식으로 자동 폴백되므로 걱정 없습니다.
+          </p>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+          <h4 class="font-bold text-white text-base mb-2">Q. WSL 바탕화면 바로가기를 누르면 왜 창이 안 꺼지나요?</h4>
+          <p class="text-sm text-slate-400">
+            기존 WSL 단축 아이콘은 초기 설정 미완료 시 즉시 닫혀버리는 문제가 있었습니다. 원펀치는 안전한 Keep-Alive 래퍼를 적용하여 리눅스 계정의 홈 디렉터리(<code class="text-blue-300">/home/유저명</code>)로 바로 진입하며, 오류가 나더라도 에러 메시지를 확인할 수 있도록 창이 유지됩니다.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-10 bg-slate-950 border-t border-slate-900 text-center text-xs text-slate-500">
+    <div class="max-w-6xl mx-auto px-4 space-y-3">
+      <div class="flex items-center justify-center gap-2 text-sm text-slate-300 font-bold">
+        <span>🥊 원펀치 (OnePunch) v3.0</span>
+      </div>
+      <p>코딩 교육생 동기들을 위해 직접 만든 원클릭 개발 환경 세팅기 | Windows 10/11 64-bit 지원</p>
+      <p class="text-slate-600">공용 실습실 PC는 퇴실 전 반드시 본인 GitHub에 'git push' 잊지 마세요! 😉</p>
+    </div>
+  </footer>
+
+  <!-- Client-side Interactive Comment Board Script -->
+  <script>
+    const STORAGE_KEY = 'onepunch_feedback_comments_v3_clean';
+
+    function getComments() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return [];
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    let currentFilter = 'all';
+
+    function renderComments() {
+      const allComments = getComments();
+      const filtered = currentFilter === 'all' 
+        ? allComments 
+        : allComments.filter(c => c.category === currentFilter);
+
+      const listEl = document.getElementById('commentsList');
+      const countEl = document.getElementById('commentCount');
+      countEl.textContent = allComments.length;
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div class="text-center py-12 rounded-2xl bg-slate-900/40 border border-slate-800 text-slate-500 text-sm">
+            <i class="fa-regular fa-folder-open text-2xl mb-2 block"></i>
+            해당 분류의 댓글이 아직 없습니다. 첫 번째 의견을 남겨주세요!
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(c => {
+        let badgeColor = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+        if (c.category === 'bug') badgeColor = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+        else if (c.category === 'feature') badgeColor = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+        else if (c.category === 'praise') badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+
+        return `
+          <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-colors">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+              <div class="flex items-center gap-2">
+                <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold border ${badgeColor}">
+                  ${c.categoryLabel || c.category}
+                </span>
+                <span class="text-xs font-bold text-slate-200">${escapeHtml(c.author)}</span>
+                <span class="text-xs text-slate-500">| ${escapeHtml(c.os || '')}</span>
+              </div>
+              <span class="text-xs text-slate-500 font-mono">${escapeHtml(c.createdAt)}</span>
+            </div>
+            <h5 class="text-sm font-bold text-white mb-1.5">${escapeHtml(c.title)}</h5>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">${escapeHtml(c.content)}</p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function filterCategory(cat) {
+      currentFilter = cat;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-slate-900', 'text-slate-300');
+      });
+      event.target.classList.remove('bg-slate-900', 'text-slate-300');
+      event.target.classList.add('bg-blue-600', 'text-white');
+      renderComments();
+    }
+
+    function handleCommentSubmit(e) {
+      e.preventDefault();
+      const author = document.getElementById('authorInput').value.trim();
+      const category = document.getElementById('categoryInput').value;
+      const os = document.getElementById('osInput').value;
+      const title = document.getElementById('titleInput').value.trim();
+      const content = document.getElementById('contentInput').value.trim();
+
+      const catMap = {
+        bug: '🐞 버그 제보',
+        feature: '💡 기능 제안',
+        question: '❓ 설치 질문',
+        praise: '💬 사용 후기'
+      };
+
+      const now = new Date();
+      const createdAt = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+      const newComment = {
+        id: 'comment-' + Date.now(),
+        author,
+        category,
+        categoryLabel: catMap[category],
+        os,
+        title,
+        content,
+        createdAt
+      };
+
+      const list = getComments();
+      list.unshift(newComment);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+
+      // Reset form
+      document.getElementById('titleInput').value = '';
+      document.getElementById('contentInput').value = '';
+
+      renderComments();
+
+      // Smooth scroll to comments
+      document.getElementById('feedback').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Initial render
+    document.addEventListener('DOMContentLoaded', () => {
+      renderComments();
+    });
+  </script>
+</body>
+</html>

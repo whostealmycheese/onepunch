@@ -4,7 +4,5 @@ installers/
 *.log
 *.pdb
 
-# Rust target if built
-rust-src/target/
-
-.vercel
+# Local Vercel CLI cache
+.vercel/

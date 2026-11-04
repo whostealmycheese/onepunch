@@ -1,9 +1,0 @@
-[package]
-name = "edu-pc-setup"
-version = "2.0.0"
-edition = "2021"
-description = "교육장 PC 원클릭 및 선택적 개발 환경 구축 솔루션"
-
-[dependencies]
-winreg = "0.52"
-windows-sys = { version = "0.52", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }

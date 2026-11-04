@@ -1,0 +1,1416 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Net;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+using System.Text;
+using Microsoft.Win32;
+
+namespace OnePunchSetup
+{
+    class Program
+    {
+        private static readonly string AppDir = AppDomain.CurrentDomain.BaseDirectory;
+        private static readonly string InstallersDir = Path.Combine(AppDir, "installers");
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessageTimeout(
+            IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam,
+            uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
+
+        static void SafeClear()
+        {
+            try { Console.Clear(); } catch { }
+        }
+
+        static void SafeReadKey()
+        {
+            try { Console.ReadKey(true); } catch { }
+        }
+
+        static void Main(string[] args)
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            try { Console.Title = "원펀치 (OnePunch) v3.0"; } catch { }
+            ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768; // Tls12 | Tls11
+
+            bool skipAdmin = false;
+            string cliChoice = null;
+            foreach (var arg in args)
+            {
+                if (arg.Equals("/noadmin", StringComparison.OrdinalIgnoreCase) || arg.Equals("--no-admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    skipAdmin = true;
+                }
+                else if (arg.Equals("/check", StringComparison.OrdinalIgnoreCase) || arg.Equals("--check", StringComparison.OrdinalIgnoreCase))
+                {
+                    cliChoice = "10";
+                }
+                else if (arg.Equals("/all", StringComparison.OrdinalIgnoreCase) || arg.Equals("--all", StringComparison.OrdinalIgnoreCase))
+                {
+                    cliChoice = "1";
+                }
+                else
+                {
+                    int n;
+                    if (int.TryParse(arg, out n) && n >= 0 && n <= 10)
+                    {
+                        cliChoice = arg;
+                    }
+                }
+            }
+
+            if (!skipAdmin && !IsAdministrator())
+            {
+                Console.WriteLine("[안내] 관리자 권한이 필요합니다. 관리자 권한(UAC)으로 재실행합니다...");
+                RestartAsAdmin();
+                return;
+            }
+
+            if (!Directory.Exists(InstallersDir))
+            {
+                Directory.CreateDirectory(InstallersDir);
+            }
+
+            // 초코레이틀리(Chocolatey) 사전 자동 설치 조치
+            EnsureChocolateyInstalled();
+
+            // 명령줄 인수로 번호나 옵션이 전달된 경우 즉시 실행 후 종료
+            if (cliChoice != null)
+            {
+                RunChoice(cliChoice);
+                return;
+            }
+
+            while (true)
+            {
+                SafeClear();
+                PrintBanner();
+                PrintMenu();
+
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Write("\n선택 [0-10]: ");
+                Console.ResetColor();
+
+                string choice = Console.ReadLine();
+                if (choice != null) choice = choice.Trim();
+                if (string.IsNullOrEmpty(choice)) continue;
+
+                if (choice == "0")
+                {
+                    Console.WriteLine("\n원펀치를 종료합니다.");
+                    break;
+                }
+
+                RunChoice(choice);
+
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine("\n계속하려면 아무 키나 누르세요...");
+                Console.ResetColor();
+                SafeReadKey();
+            }
+        }
+
+        static bool IsAdministrator()
+        {
+            WindowsIdentity identity = WindowsIdentity.GetCurrent();
+            WindowsPrincipal principal = new WindowsPrincipal(identity);
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        static void RestartAsAdmin()
+        {
+            try
+            {
+                ProcessStartInfo proc = new ProcessStartInfo
+                {
+                    UseShellExecute = true,
+                    WorkingDirectory = Environment.CurrentDirectory,
+                    FileName = Process.GetCurrentProcess().MainModule.FileName,
+                    Verb = "runas"
+                };
+                Process.Start(proc);
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("관리자 권한 승격 실패: " + ex.Message);
+                Console.ResetColor();
+                Console.ReadKey();
+            }
+        }
+
+        static void PrintBanner()
+        {
+            bool hasChoco = IsChocoAvailable();
+
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("================================================================================");
+            Console.WriteLine("                            [원펀치 (OnePunch) v3.0]                            ");
+            Console.WriteLine("================================================================================");
+            Console.ResetColor();
+            Console.Write(" * 패키지 엔진: ");
+            Console.ForegroundColor = hasChoco ? ConsoleColor.Green : ConsoleColor.Yellow;
+            Console.Write("Chocolatey [" + (hasChoco ? "준비 완료" : "설치 진행") + "]");
+            Console.ResetColor();
+            Console.WriteLine(" | 공식 인스톨러 자동 폴백 지원");
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine(" * 실습실 PC는 공용이므로 퇴실 전 반드시 GitHub에 'git push' 하세요.");
+            Console.ResetColor();
+            Console.WriteLine("--------------------------------------------------------------------------------");
+        }
+
+        static void PrintMenu()
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine(" [1] 전체 설치");
+            Console.ResetColor();
+            Console.WriteLine(" [2] Python 3.12");
+            Console.WriteLine(" [3] Visual Studio Code");
+            Console.WriteLine(" [4] Docker Desktop");
+            Console.WriteLine(" [5] WSL2 & Ubuntu 24.04 LTS");
+            Console.WriteLine(" [6] WSL 리눅스 개발 환경 설정");
+            Console.WriteLine(" [7] 터미널 파워 도구 팩");
+            Console.WriteLine(" [8] 다중 선택 설치");
+            Console.WriteLine(" [9] 환경변수 및 바로가기 복구");
+            Console.WriteLine(" [10] 설치 상태 검증");
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.WriteLine(" [0] 종료");
+            Console.ResetColor();
+            Console.WriteLine("================================================================================");
+        }
+
+        static void RunChoice(string choice)
+        {
+            SafeClear();
+            PrintBanner();
+
+            switch (choice)
+            {
+                case "1":
+                    Console.WriteLine("\n>>> [1. 전체 설치] 시작\n");
+                    PerformPreFlightChecks();
+                    ExecutePython();
+                    ExecuteVSCode();
+                    ExecuteDocker();
+                    ExecuteWSL();
+                    ProvisionWSLLinux("");
+                    RepairEnvironmentAndShortcuts();
+                    BroadcastEnvChange();
+                    ShowVerifyReport();
+                    break;
+
+                case "2":
+                    Console.WriteLine("\n>>> [2. Python 3.12] 시작\n");
+                    ExecutePython();
+                    BroadcastEnvChange();
+                    break;
+
+                case "3":
+                    Console.WriteLine("\n>>> [3. Visual Studio Code] 시작\n");
+                    ExecuteVSCode();
+                    BroadcastEnvChange();
+                    break;
+
+                case "4":
+                    Console.WriteLine("\n>>> [4. Docker Desktop] 시작\n");
+                    ExecuteDocker();
+                    BroadcastEnvChange();
+                    break;
+
+                case "5":
+                    Console.WriteLine("\n>>> [5. WSL2 & Ubuntu 24.04 LTS] 시작\n");
+                    ExecuteWSL();
+                    BroadcastEnvChange();
+                    break;
+
+                case "6":
+                    Console.WriteLine("\n>>> [6. WSL 리눅스 개발 환경 설정] 시작\n");
+                    ProvisionWSLLinux("");
+                    break;
+
+                case "7":
+                    Console.WriteLine("\n>>> [7. 터미널 파워 도구 팩] 시작\n");
+                    InstallTerminalPowerTools("");
+                    break;
+
+                case "8":
+                    RunMultiSelect();
+                    break;
+
+                case "9":
+                    Console.WriteLine("\n>>> [9. 환경변수 및 바로가기 복구] 시작\n");
+                    RepairEnvironmentAndShortcuts();
+                    BroadcastEnvChange();
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("\n[+] 환경변수 및 바로가기 복구 완료");
+                    Console.ResetColor();
+                    break;
+
+                case "10":
+                    Console.WriteLine("\n>>> [10. 설치 상태 검증] 시작\n");
+                    ShowVerifyReport();
+                    break;
+
+                default:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("잘못된 번호입니다. [0-10] 사이 숫자를 입력하세요.");
+                    Console.ResetColor();
+                    break;
+            }
+        }
+
+        static void RunMultiSelect()
+        {
+            Console.WriteLine("\n[다중 선택 설치]");
+            Console.WriteLine("  2: Python 3.12");
+            Console.WriteLine("  3: Visual Studio Code");
+            Console.WriteLine("  4: Docker Desktop");
+            Console.WriteLine("  5: WSL2 & Ubuntu 24.04 LTS");
+            Console.WriteLine("  6: WSL 리눅스 개발 환경 설정");
+            Console.WriteLine("  7: 터미널 파워 도구 팩");
+            Console.Write("\n설치할 번호를 쉼표로 입력 (예: 2,3,6 또는 4,5,6): ");
+            string input = Console.ReadLine();
+            if (string.IsNullOrEmpty(input)) return;
+
+            string[] tokens = input.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            HashSet<string> selected = new HashSet<string>(tokens);
+
+            PerformPreFlightChecks();
+
+            if (selected.Contains("2")) ExecutePython();
+            if (selected.Contains("3")) ExecuteVSCode();
+            if (selected.Contains("4")) ExecuteDocker();
+            if (selected.Contains("5")) ExecuteWSL();
+            if (selected.Contains("6")) ProvisionWSLLinux("");
+            if (selected.Contains("7")) InstallTerminalPowerTools("");
+
+            RepairEnvironmentAndShortcuts();
+            BroadcastEnvChange();
+            ShowVerifyReport();
+        }
+
+        static void PerformPreFlightChecks()
+        {
+            try
+            {
+                DriveInfo cDrive = new DriveInfo("C");
+                long freeGb = cDrive.AvailableFreeSpace / (1024 * 1024 * 1024);
+                if (freeGb < 15)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("[경고] C: 드라이브 여유 공간 부족 (" + freeGb + " GB / 권장: 15GB 이상)");
+                    Console.ResetColor();
+                }
+            }
+            catch { }
+
+            string[] procs = { "Code", "Docker Desktop", "python" };
+            foreach (var p in procs)
+            {
+                if (Process.GetProcessesByName(p).Length > 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("[알림] '" + p + "' 프로세스 실행 중 (종료 권장)");
+                    Console.ResetColor();
+                }
+            }
+        }
+
+        #region Installation Logic
+
+        static void ExecutePython()
+        {
+            Console.WriteLine("\n[설치] Python 3.12 점검 및 설치");
+
+            var detected = DetectPython();
+            string targetDir = @"C:\Program Files\Python312";
+
+            if (detected.Installed)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("[-] 이미 설치됨: Python " + detected.Version + " (" + detected.Path + ")");
+                Console.ResetColor();
+                targetDir = detected.Path;
+            }
+            else
+            {
+                bool installed = false;
+
+                // 1. Chocolatey 우선 설치
+                if (IsChocoAvailable())
+                {
+                    Console.WriteLine("[*] Chocolatey로 Python 3 설치 중...");
+                    int code = RunProcess("choco.exe", "install python3 -y --no-progress", true);
+                    if (code == 0)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] Chocolatey Python 설치 완료");
+                        Console.ResetColor();
+                        installed = true;
+                    }
+                }
+
+                // 2. 공식 인스톨러 폴백
+                if (!installed)
+                {
+                    Console.WriteLine("[*] 공식 인스톨러 다운로드 및 설치 중...");
+                    string pyVersion = "3.12.8";
+                    string url = "https://www.python.org/ftp/python/" + pyVersion + "/python-" + pyVersion + "-amd64.exe";
+                    string installer = Path.Combine(InstallersDir, "python-" + pyVersion + "-amd64.exe");
+
+                    if (DownloadFileWithRetry(url, installer))
+                    {
+                        string args = string.Format("/quiet InstallAllUsers=1 PrependPath=1 Include_test=0 Include_pip=1 TargetDir=\"{0}\"", targetDir);
+                        RunProcess(installer, args, true);
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] Python 3.12 설치 완료");
+                        Console.ResetColor();
+                    }
+                }
+
+                var fresh = DetectPython();
+                if (fresh.Installed) targetDir = fresh.Path;
+            }
+
+            if (Directory.Exists(targetDir))
+            {
+                AddToSystemPath(targetDir);
+                string scripts = Path.Combine(targetDir, "Scripts");
+                if (Directory.Exists(scripts)) AddToSystemPath(scripts);
+
+                FixPythonStoreAlias(targetDir);
+
+                string pyExe = Path.Combine(targetDir, "python.exe");
+                CreateShortcut("Python (명령줄)", pyExe, "", pyExe + ",0", "Python REPL");
+
+                string idleScript = Path.Combine(targetDir, @"Lib\idlelib\idle.pyw");
+                string pywExe = Path.Combine(targetDir, "pythonw.exe");
+                if (File.Exists(pywExe) && File.Exists(idleScript))
+                {
+                    CreateShortcut("IDLE (Python GUI)", pywExe, "\"" + idleScript + "\"", pyExe + ",0", "Python IDLE");
+                }
+            }
+        }
+
+        static void ExecuteVSCode()
+        {
+            Console.WriteLine("\n[설치] Visual Studio Code 점검 및 설치");
+
+            var detected = DetectVSCode();
+            string targetDir = @"C:\Program Files\Microsoft VS Code";
+            string codeCmd = "";
+
+            if (detected.Installed)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("[-] 이미 설치됨: VS Code (" + detected.Path + ")");
+                Console.ResetColor();
+                targetDir = detected.Path;
+                codeCmd = detected.CodeCmd;
+            }
+            else
+            {
+                bool installed = false;
+
+                // 1. Chocolatey 우선 설치
+                if (IsChocoAvailable())
+                {
+                    Console.WriteLine("[*] Chocolatey로 VS Code 설치 중...");
+                    int code = RunProcess("choco.exe", "install vscode -y --no-progress", true);
+                    if (code == 0)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] Chocolatey VS Code 설치 완료");
+                        Console.ResetColor();
+                        installed = true;
+                    }
+                }
+
+                // 2. 공식 인스톨러 폴백
+                if (!installed)
+                {
+                    Console.WriteLine("[*] 공식 인스톨러 다운로드 및 설치 중...");
+                    string url = "https://update.code.visualstudio.com/latest/win32-x64/stable";
+                    string installer = Path.Combine(InstallersDir, "VSCodeSetup-x64.exe");
+
+                    if (DownloadFileWithRetry(url, installer))
+                    {
+                        string args = "/VERYSILENT /NORESTART /MERGETASKS=!runcode,addtopath,desktopicon,quicklaunchicon";
+                        RunProcess(installer, args, true);
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] VS Code 설치 완료");
+                        Console.ResetColor();
+                    }
+                }
+
+                var fresh = DetectVSCode();
+                if (fresh.Installed)
+                {
+                    targetDir = fresh.Path;
+                    codeCmd = fresh.CodeCmd;
+                }
+            }
+
+            if (File.Exists(codeCmd))
+            {
+                AddToSystemPath(Path.GetDirectoryName(codeCmd));
+
+                Console.WriteLine("[*] 필수 확장팩 설치 중 (WSL, Python, GitLens, 한국어팩)...");
+                string[] extensions = {
+                    "MS-CEINTL.vscode-language-pack-ko",
+                    "ms-vscode-remote.remote-wsl",
+                    "ms-python.python",
+                    "eamodio.gitlens",
+                    "github.vscode-pull-request-github"
+                };
+
+                foreach (var ext in extensions)
+                {
+                    RunProcess(codeCmd, "--install-extension " + ext + " --force", true);
+                }
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("[+] VS Code 확장팩 설치 완료");
+                Console.ResetColor();
+
+                ConfigureVSCodeLocaleKo();
+
+                string codeExe = Path.Combine(targetDir, "Code.exe");
+                if (File.Exists(codeExe))
+                {
+                    CreateShortcut("Visual Studio Code", codeExe, "", codeExe + ",0", "VS Code");
+                }
+            }
+        }
+
+        static void ExecuteDocker()
+        {
+            Console.WriteLine("\n[설치] Docker Desktop 점검 및 설치");
+
+            var detected = DetectDocker();
+            string targetDir = @"C:\Program Files\Docker\Docker";
+
+            if (detected.Installed)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("[-] 이미 설치됨: Docker Desktop (" + detected.Path + ")");
+                Console.ResetColor();
+                targetDir = detected.Path;
+            }
+            else
+            {
+                bool installed = false;
+
+                // 1. Chocolatey 우선 설치
+                if (IsChocoAvailable())
+                {
+                    Console.WriteLine("[*] Chocolatey로 Docker Desktop 설치 중...");
+                    int code = RunProcess("choco.exe", "install docker-desktop -y --no-progress", true);
+                    if (code == 0)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] Chocolatey Docker Desktop 설치 완료");
+                        Console.ResetColor();
+                        installed = true;
+                    }
+                }
+
+                // 2. 공식 인스톨러 폴백
+                if (!installed)
+                {
+                    Console.WriteLine("[*] 공식 인스톨러 다운로드 및 설치 중 (WSL2 백엔드)...");
+                    string url = "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe";
+                    string installer = Path.Combine(InstallersDir, "DockerDesktopInstaller.exe");
+
+                    if (DownloadFileWithRetry(url, installer))
+                    {
+                        string args = "install --quiet --accept-license --backend=wsl-2";
+                        RunProcess(installer, args, true);
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] Docker Desktop 설치 완료");
+                        Console.ResetColor();
+                    }
+                }
+
+                var fresh = DetectDocker();
+                if (fresh.Installed) targetDir = fresh.Path;
+            }
+
+            string binDir = !string.IsNullOrEmpty(detected.BinPath) && Directory.Exists(detected.BinPath)
+                ? detected.BinPath
+                : Path.Combine(targetDir, @"resources\bin");
+            if (Directory.Exists(binDir)) AddToSystemPath(binDir);
+
+            string dockerExe = !string.IsNullOrEmpty(detected.Exe) && File.Exists(detected.Exe)
+                ? detected.Exe
+                : Path.Combine(targetDir, "Docker Desktop.exe");
+            if (File.Exists(dockerExe))
+            {
+                CreateShortcut("Docker Desktop", dockerExe, "", dockerExe + ",0", "Docker Desktop");
+            }
+
+            FixWSLDockerPermission();
+        }
+
+        static void ExecuteWSL()
+        {
+            Console.WriteLine("\n[설치] WSL2 & Ubuntu 24.04 LTS 점검 및 등록");
+
+            try
+            {
+                RunProcess("dism.exe", "/online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart", true);
+                RunProcess("dism.exe", "/online /enable-feature /featurename:VirtualMachinePlatform /all /norestart", true);
+                RunProcess("wsl.exe", "--set-default-version 2", true);
+            }
+            catch { }
+
+            var detected = DetectWSL();
+            if (detected.HasUbuntu)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("[-] 이미 등록됨: " + detected.DistroName);
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.WriteLine("[*] Ubuntu 24.04 LTS 등록 중 (wsl --install -d Ubuntu-24.04 --no-launch)...");
+                RunProcess("wsl.exe", "--install -d Ubuntu-24.04 --no-launch", true);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("[+] Ubuntu 24.04 배포판 등록 완료");
+                Console.ResetColor();
+            }
+
+            CreateRobustWSLShortcut(detected.HasUbuntu ? detected.DistroName : "Ubuntu-24.04");
+        }
+
+        static void ProvisionWSLLinux(string distroName)
+        {
+            Console.WriteLine("\n[설정] WSL 리눅스 내부 개발 환경 설정");
+
+            var wsl = DetectWSL();
+            if (!wsl.Installed)
+            {
+                Console.WriteLine("[-] WSL 미설치");
+                return;
+            }
+
+            string distro = string.IsNullOrEmpty(distroName) ? (wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04") : distroName;
+            Console.WriteLine("[*] 대상 배포판: " + distro);
+
+            Console.WriteLine("[*] 패키지 설치 중 (build-essential, git, curl, venv, ruff, gh)...");
+            string aptCmd = "apt-get update && apt-get install -y build-essential curl wget git unzip python3-pip python3-venv gh jq";
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, aptCmd), true);
+
+            string ruffCmd = "python3 -m pip install --break-system-packages ruff 2>/dev/null || pip install ruff 2>/dev/null || true";
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, ruffCmd), true);
+
+            Console.WriteLine("[*] 작업 디렉터리 (~/projects) 생성 중...");
+            string projectsCmd = "id -un 1000 2>/dev/null | xargs -I {} bash -c 'mkdir -p /home/{}/projects && chown -R {}:{} /home/{}/projects'";
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, projectsCmd), true);
+
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"git config --system init.defaultBranch main\"", distro), true);
+
+            FixWSLDockerPermission();
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("[+] WSL 리눅스 내부 개발 환경 설정 완료");
+            Console.ResetColor();
+        }
+
+        static void InstallTerminalPowerTools(string distroName)
+        {
+            Console.WriteLine("\n[설정] 터미널 파워 도구 팩 설치");
+
+            var wsl = DetectWSL();
+            if (!wsl.Installed)
+            {
+                Console.WriteLine("[-] WSL 미설치");
+                return;
+            }
+
+            string distro = string.IsNullOrEmpty(distroName) ? (wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04") : distroName;
+            Console.WriteLine("[*] 도구 설치 중 (btop, tmux, ripgrep, fzf, zoxide, tealdeer)...");
+            string cmd = "apt-get update && apt-get install -y btop tmux ripgrep fzf zoxide tealdeer && tldr --update 2>/dev/null || true";
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, cmd), true);
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("[+] 터미널 파워 도구 팩 설치 완료");
+            Console.ResetColor();
+        }
+
+        static void FixWSLDockerPermission()
+        {
+            try
+            {
+                var wsl = DetectWSL();
+                if (wsl.Installed)
+                {
+                    string distro = wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04";
+                    string cmd = "groupadd -f docker && (id -un 1000 2>/dev/null | xargs -I {} usermod -aG docker {})";
+                    RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, cmd), true);
+                    Console.WriteLine("[+] WSL docker 권한 부여 완료");
+                }
+            }
+            catch { }
+        }
+
+        static void CreateRobustWSLShortcut(string distroName)
+        {
+            string target = @"C:\Windows\System32\cmd.exe";
+            string args = string.Format(
+                "/k \"wsl.exe ~ -d {0} 2>nul || wsl.exe ~ -d Ubuntu 2>nul || wsl.exe ~ 2>nul || " +
+                "(echo. && echo [WSL 실행 안내] WSL 배포판을 시작할 수 없습니다. && " +
+                "echo PC 재부팅 후 또는 'wsl -l -v' 로 등록 상태를 확인하세요. && echo. && pause)\"",
+                distroName);
+
+            string icon = @"C:\Windows\System32\wsl.exe,0";
+            CreateShortcut("Ubuntu 24.04 LTS", target, args, icon, "Ubuntu 24.04 LTS Linux Shell");
+
+            string whereWt = RunProcessWithOutput("where.exe", "wt").Trim();
+            if (!string.IsNullOrEmpty(whereWt))
+            {
+                string wtArgs = string.Format("/c start wt.exe wsl.exe ~ -d {0}", distroName);
+                CreateShortcut("Ubuntu (Windows Terminal)", target, wtArgs, icon, "Ubuntu in Windows Terminal");
+            }
+        }
+
+        static void EnsureChocolateyInstalled()
+        {
+            if (IsChocoAvailable()) return;
+
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("[*] Chocolatey(choco) 자동 사전 구성 중...");
+            Console.ResetColor();
+
+            try
+            {
+                string psScript = "[System.Net.ServicePointManager]::SecurityProtocol = 3072; " +
+                                  "iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))";
+
+                ProcessStartInfo psi = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Command \"" + psScript + "\"")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                var p = Process.Start(psi);
+                if (p != null) p.WaitForExit(60000);
+
+                string chocoBin = @"C:\ProgramData\chocolatey\bin";
+                if (Directory.Exists(chocoBin)) AddToSystemPath(chocoBin);
+
+                if (IsChocoAvailable())
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("[+] Chocolatey 준비 완료\n");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    Console.WriteLine("[-] Chocolatey 자동 구성 건너뜀 (공식 인스톨러 모드로 동작합니다)\n");
+                    Console.ResetColor();
+                }
+            }
+            catch
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("[-] Chocolatey 자동 구성 건너뜀 (공식 인스톨러 모드로 동작합니다)\n");
+                Console.ResetColor();
+            }
+        }
+
+        static void RepairEnvironmentAndShortcuts()
+        {
+            var py = DetectPython();
+            if (py.Installed && Directory.Exists(py.Path))
+            {
+                AddToSystemPath(py.Path);
+                string s = Path.Combine(py.Path, "Scripts");
+                if (Directory.Exists(s)) AddToSystemPath(s);
+                FixPythonStoreAlias(py.Path);
+                CreateShortcut("Python (명령줄)", Path.Combine(py.Path, "python.exe"), "", Path.Combine(py.Path, "python.exe") + ",0", "Python");
+            }
+
+            var code = DetectVSCode();
+            if (code.Installed && File.Exists(code.CodeCmd))
+            {
+                AddToSystemPath(Path.GetDirectoryName(code.CodeCmd));
+                CreateShortcut("Visual Studio Code", Path.Combine(code.Path, "Code.exe"), "", Path.Combine(code.Path, "Code.exe") + ",0", "VS Code");
+            }
+
+            var docker = DetectDocker();
+            if (docker.Installed)
+            {
+                if (!string.IsNullOrEmpty(docker.BinPath) && Directory.Exists(docker.BinPath))
+                {
+                    AddToSystemPath(docker.BinPath);
+                }
+                if (!string.IsNullOrEmpty(docker.Exe) && File.Exists(docker.Exe))
+                {
+                    CreateShortcut("Docker Desktop", docker.Exe, "", docker.Exe + ",0", "Docker");
+                }
+            }
+
+            var wsl = DetectWSL();
+            CreateRobustWSLShortcut(wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04");
+            FixWSLDockerPermission();
+        }
+
+        #endregion
+
+        #region Multi-Tier Deep Detection Engine
+
+        public class PythonInfo { public bool Installed; public string Version; public string Path; }
+        static PythonInfo DetectPython()
+        {
+            var res = new PythonInfo { Installed = false, Version = "", Path = "" };
+
+            // Tier 1: py.exe
+            string pyLauncherOut = RunProcessWithOutput("py.exe", "-0p").Trim();
+            if (!string.IsNullOrEmpty(pyLauncherOut))
+            {
+                string[] lines = pyLauncherOut.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    int colonIdx = line.IndexOf(":\\", StringComparison.Ordinal);
+                    if (colonIdx > 0)
+                    {
+                        string exePath = line.Substring(colonIdx - 1).Trim();
+                        if (File.Exists(exePath))
+                        {
+                            string ver = RunProcessWithOutput(exePath, "-c \"import sys; print(str(sys.version_info[0])+'.'+str(sys.version_info[1])+'.'+str(sys.version_info[2]))\"").Trim();
+                            if (!string.IsNullOrEmpty(ver) && ver.Contains("."))
+                            {
+                                res.Installed = true;
+                                res.Version = ver;
+                                res.Path = Path.GetDirectoryName(exePath);
+                                return res;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Tier 2: Registry
+            string[] pyCoreRoots = {
+                @"SOFTWARE\Python\PythonCore",
+                @"SOFTWARE\WOW6432Node\Python\PythonCore"
+            };
+            foreach (var rootKey in pyCoreRoots)
+            {
+                foreach (var root in new RegistryKey[] { Registry.LocalMachine, Registry.CurrentUser })
+                {
+                    try
+                    {
+                        using (var k = root.OpenSubKey(rootKey))
+                        {
+                            if (k != null)
+                            {
+                                foreach (var verName in k.GetSubKeyNames())
+                                {
+                                    using (var installKey = k.OpenSubKey(verName + @"\InstallPath"))
+                                    {
+                                        if (installKey != null)
+                                        {
+                                            string p = installKey.GetValue("", "") as string ?? "";
+                                            if (string.IsNullOrEmpty(p)) p = installKey.GetValue("ExecutablePath", "") as string ?? "";
+                                            if (!string.IsNullOrEmpty(p))
+                                            {
+                                                string exe = File.Exists(p) ? p : Path.Combine(p, "python.exe");
+                                                if (File.Exists(exe))
+                                                {
+                                                    string ver = RunProcessWithOutput(exe, "-c \"import sys; print(str(sys.version_info[0])+'.'+str(sys.version_info[1])+'.'+str(sys.version_info[2]))\"").Trim();
+                                                    if (!string.IsNullOrEmpty(ver) && ver.Contains("."))
+                                                    {
+                                                        res.Installed = true;
+                                                        res.Version = ver;
+                                                        res.Path = Path.GetDirectoryName(exe);
+                                                        return res;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            // Tier 3: Candidates & where.exe
+            string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            List<string> candidateDirs = new List<string> {
+                @"C:\Program Files\Python312", @"C:\Program Files\Python311", @"C:\Program Files\Python310", @"C:\Program Files\Python313", @"C:\Program Files\Python39",
+                Path.Combine(localApp, @"Programs\Python\Python312"),
+                Path.Combine(localApp, @"Programs\Python\Python311"),
+                Path.Combine(localApp, @"Programs\Python\Python310"),
+                Path.Combine(localApp, @"Programs\Python\Python313"),
+                @"C:\Python312", @"C:\Python311", @"C:\Python310"
+            };
+
+            string wherePy = RunProcessWithOutput("where.exe", "python").Trim();
+            if (!string.IsNullOrEmpty(wherePy))
+            {
+                string[] lines = wherePy.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var l in lines)
+                {
+                    if (l.IndexOf("WindowsApps", StringComparison.OrdinalIgnoreCase) < 0 && File.Exists(l))
+                    {
+                        candidateDirs.Insert(0, Path.GetDirectoryName(l));
+                    }
+                }
+            }
+
+            foreach (var d in candidateDirs)
+            {
+                if (string.IsNullOrEmpty(d)) continue;
+                string exe = Path.Combine(d, "python.exe");
+                if (File.Exists(exe))
+                {
+                    string ver = RunProcessWithOutput(exe, "-c \"import sys; print(str(sys.version_info[0])+'.'+str(sys.version_info[1])+'.'+str(sys.version_info[2]))\"").Trim();
+                    if (!string.IsNullOrEmpty(ver) && ver.Contains("."))
+                    {
+                        res.Installed = true;
+                        res.Version = ver;
+                        res.Path = d;
+                        return res;
+                    }
+                }
+            }
+
+            return res;
+        }
+
+        public class VSCodeInfo { public bool Installed; public string Path; public string CodeCmd; public bool KoreanExt; }
+        static VSCodeInfo DetectVSCode()
+        {
+            var res = new VSCodeInfo { Installed = false, Path = "", CodeCmd = "", KoreanExt = false };
+
+            string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string progFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            string progFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+
+            List<string> candidateDirs = new List<string> {
+                Path.Combine(progFiles, @"Microsoft VS Code"),
+                Path.Combine(localApp, @"Programs\Microsoft VS Code"),
+                Path.Combine(progFilesX86, @"Microsoft VS Code"),
+                @"C:\Program Files\Microsoft VS Code",
+                @"C:\Program Files (x86)\Microsoft VS Code"
+            };
+
+            string whereOutput = RunProcessWithOutput("where.exe", "code").Trim();
+            if (!string.IsNullOrEmpty(whereOutput))
+            {
+                string[] lines = whereOutput.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    if (File.Exists(line))
+                    {
+                        string binDir = Path.GetDirectoryName(line);
+                        string parent = Path.GetDirectoryName(binDir);
+                        if (parent != null && !candidateDirs.Contains(parent)) candidateDirs.Insert(0, parent);
+                    }
+                }
+            }
+
+            string[] uninstallKeys = {
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+            };
+            foreach (var uKey in uninstallKeys)
+            {
+                foreach (var root in new RegistryKey[] { Registry.LocalMachine, Registry.CurrentUser })
+                {
+                    try
+                    {
+                        using (var k = root.OpenSubKey(uKey))
+                        {
+                            if (k != null)
+                            {
+                                foreach (var subName in k.GetSubKeyNames())
+                                {
+                                    using (var sub = k.OpenSubKey(subName))
+                                    {
+                                        if (sub != null)
+                                        {
+                                            string disp = sub.GetValue("DisplayName", "") as string ?? "";
+                                            if (disp.IndexOf("Visual Studio Code", StringComparison.OrdinalIgnoreCase) >= 0)
+                                            {
+                                                string loc = sub.GetValue("InstallLocation", "") as string ?? "";
+                                                if (!string.IsNullOrEmpty(loc) && !candidateDirs.Contains(loc))
+                                                {
+                                                    candidateDirs.Insert(0, loc);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            foreach (var d in candidateDirs)
+            {
+                if (string.IsNullOrEmpty(d)) continue;
+                string exe = Path.Combine(d, "Code.exe");
+                if (File.Exists(exe))
+                {
+                    res.Installed = true;
+                    res.Path = d;
+                    res.CodeCmd = Path.Combine(d, @"bin\code.cmd");
+                    break;
+                }
+            }
+
+            string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string extDir = Path.Combine(userProfile, @".vscode\extensions");
+            if (Directory.Exists(extDir))
+            {
+                try
+                {
+                    foreach (var sub in Directory.GetDirectories(extDir))
+                    {
+                        if (Path.GetFileName(sub).IndexOf("ms-ceintl.vscode-language-pack-ko", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            res.KoreanExt = true;
+                            break;
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            if (!res.KoreanExt && File.Exists(res.CodeCmd))
+            {
+                string extList = RunProcessWithOutput(res.CodeCmd, "--list-extensions");
+                if (extList.IndexOf("ms-ceintl.vscode-language-pack-ko", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    res.KoreanExt = true;
+                }
+            }
+
+            return res;
+        }
+
+        public class DockerInfo { public bool Installed; public string Path; public string Exe; public string BinPath; public string Version; }
+        static DockerInfo DetectDocker()
+        {
+            var res = new DockerInfo { Installed = false, Path = "", Exe = "", BinPath = "", Version = "" };
+
+            string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string progFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            string progFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+
+            List<string> candidateDirs = new List<string> {
+                Path.Combine(localApp, @"Programs\DockerDesktop"),
+                Path.Combine(progFiles, @"Docker\Docker"),
+                Path.Combine(progFiles, @"Docker Desktop"),
+                Path.Combine(progFilesX86, @"Docker\Docker"),
+                @"C:\Program Files\Docker\Docker",
+                @"C:\Program Files\Docker\Docker Desktop"
+            };
+
+            string whereOutput = RunProcessWithOutput("where.exe", "docker").Trim();
+            if (!string.IsNullOrEmpty(whereOutput))
+            {
+                string[] lines = whereOutput.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    if (File.Exists(line))
+                    {
+                        string binDir = Path.GetDirectoryName(line);
+                        string candidateDir = Path.GetDirectoryName(binDir);
+                        if (candidateDir != null)
+                        {
+                            string parent = Path.GetDirectoryName(candidateDir);
+                            if (parent != null && !candidateDirs.Contains(parent)) candidateDirs.Insert(0, parent);
+                        }
+                        if (!candidateDirs.Contains(binDir)) candidateDirs.Add(binDir);
+                    }
+                }
+            }
+
+            string[] uninstallKeys = {
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+            };
+            foreach (var uKey in uninstallKeys)
+            {
+                foreach (var root in new RegistryKey[] { Registry.LocalMachine, Registry.CurrentUser })
+                {
+                    try
+                    {
+                        using (var k = root.OpenSubKey(uKey))
+                        {
+                            if (k != null)
+                            {
+                                foreach (var subName in k.GetSubKeyNames())
+                                {
+                                    using (var sub = k.OpenSubKey(subName))
+                                    {
+                                        if (sub != null)
+                                        {
+                                            string disp = sub.GetValue("DisplayName", "") as string ?? "";
+                                            if (disp.IndexOf("Docker", StringComparison.OrdinalIgnoreCase) >= 0)
+                                            {
+                                                string loc = sub.GetValue("InstallLocation", "") as string ?? "";
+                                                if (!string.IsNullOrEmpty(loc) && !candidateDirs.Contains(loc))
+                                                {
+                                                    candidateDirs.Insert(0, loc);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            foreach (var d in candidateDirs)
+            {
+                if (string.IsNullOrEmpty(d)) continue;
+                string exe = Path.Combine(d, "Docker Desktop.exe");
+                if (File.Exists(exe))
+                {
+                    res.Installed = true;
+                    res.Path = d;
+                    res.Exe = exe;
+                    string b1 = Path.Combine(d, @"resources\bin");
+                    string b2 = Path.Combine(d, "bin");
+                    if (Directory.Exists(b1)) res.BinPath = b1;
+                    else if (Directory.Exists(b2)) res.BinPath = b2;
+                    else res.BinPath = d;
+                    break;
+                }
+            }
+
+            string verOutput = RunProcessWithOutput("docker.exe", "--version");
+            if (verOutput.IndexOf("Docker version", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                res.Installed = true;
+                res.Version = verOutput.Trim();
+                if (string.IsNullOrEmpty(res.Exe)) res.Exe = "docker.exe";
+                if (string.IsNullOrEmpty(res.Path)) res.Path = "Docker CLI in PATH";
+            }
+
+            return res;
+        }
+
+        public class WSLInfo { public bool Installed; public bool HasUbuntu; public string DistroName; public string WslExe; }
+        static WSLInfo DetectWSL()
+        {
+            var res = new WSLInfo { Installed = false, HasUbuntu = false, DistroName = "", WslExe = "" };
+
+            string[] wslCandidates = {
+                @"C:\Windows\System32\wsl.exe",
+                @"C:\Program Files\WSL\wsl.exe"
+            };
+            string wslExe = "";
+            foreach (var c in wslCandidates)
+            {
+                if (File.Exists(c)) { wslExe = c; break; }
+            }
+            if (string.IsNullOrEmpty(wslExe))
+            {
+                string whereWsl = RunProcessWithOutput("where.exe", "wsl").Trim();
+                if (!string.IsNullOrEmpty(whereWsl))
+                {
+                    string first = whereWsl.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)[0];
+                    if (File.Exists(first)) wslExe = first;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(wslExe))
+            {
+                res.Installed = true;
+                res.WslExe = wslExe;
+
+                string list = RunProcessWithOutput(wslExe, "-l -q").Replace("\0", "").Trim();
+                string[] lines = list.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var rawLine in lines)
+                {
+                    string line = rawLine.Trim();
+                    if (line.IndexOf("Ubuntu", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        res.HasUbuntu = true;
+                        res.DistroName = line;
+                        break;
+                    }
+                }
+
+                if (!res.HasUbuntu)
+                {
+                    string listV = RunProcessWithOutput(wslExe, "-l -v").Replace("\0", "");
+                    if (listV.IndexOf("Ubuntu", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        res.HasUbuntu = true;
+                        res.DistroName = "Ubuntu";
+                    }
+                }
+            }
+            return res;
+        }
+
+        static bool IsChocoAvailable()
+        {
+            try
+            {
+                string outStr = RunProcessWithOutput("choco.exe", "--version").Trim();
+                return !string.IsNullOrEmpty(outStr) && char.IsDigit(outStr[0]);
+            }
+            catch { return false; }
+        }
+
+        static bool DownloadFileWithRetry(string url, string destPath, int maxRetries = 3)
+        {
+            if (File.Exists(destPath))
+            {
+                FileInfo fi = new FileInfo(destPath);
+                if (fi.Length > 1024 * 1024)
+                {
+                    Console.WriteLine("[*] 기존 캐시 파일 발견 (" + (fi.Length / 1024 / 1024) + " MB): " + fi.Name + " (다운로드 생략)");
+                    return true;
+                }
+            }
+
+            for (int i = 1; i <= maxRetries; i++)
+            {
+                try
+                {
+                    Console.WriteLine(string.Format("[*] 다운로드 시도 ({0}/{1}): {2}", i, maxRetries, url));
+                    using (WebClient client = new WebClient())
+                    {
+                        client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+                        client.DownloadFile(url, destPath);
+                    }
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("[+] 다운로드 성공: " + Path.GetFileName(destPath));
+                    Console.ResetColor();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine(string.Format("[-] {0}차 다운로드 실패: {1}", i, ex.Message));
+                    Console.ResetColor();
+                    System.Threading.Thread.Sleep(2000);
+                }
+            }
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("[-] 최종 다운로드 실패: " + url);
+            Console.ResetColor();
+            return false;
+        }
+
+        static void AddToSystemPath(string dirPath)
+        {
+            if (!Directory.Exists(dirPath)) return;
+            string cleanDir = Path.GetFullPath(dirPath).TrimEnd('\\');
+
+            try
+            {
+                using (RegistryKey envKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager\Environment", true))
+                {
+                    if (envKey != null)
+                    {
+                        string currentPath = envKey.GetValue("Path", "", RegistryValueOptions.DoNotExpandEnvironmentNames) as string ?? "";
+                        string[] items = currentPath.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+
+                        List<string> list = new List<string> { cleanDir };
+                        foreach (var it in items)
+                        {
+                            string t = it.Trim().TrimEnd('\\');
+                            if (!string.IsNullOrEmpty(t) && !t.Equals(cleanDir, StringComparison.OrdinalIgnoreCase) && !list.Contains(t))
+                            {
+                                list.Add(t);
+                            }
+                        }
+                        string newPath = string.Join(";", list.ToArray());
+                        envKey.SetValue("Path", newPath, RegistryValueKind.ExpandString);
+                        Console.WriteLine("[+] 전역 PATH 등록: " + cleanDir);
+                    }
+                }
+
+                string pPath = Environment.GetEnvironmentVariable("PATH") ?? "";
+                if (!pPath.Contains(cleanDir))
+                {
+                    Environment.SetEnvironmentVariable("PATH", cleanDir + ";" + pPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("PATH 등록 오류: " + ex.Message);
+            }
+        }
+
+        static void FixPythonStoreAlias(string pyDir)
+        {
+            try
+            {
+                string pyExe = Path.Combine(pyDir, "python.exe");
+                if (File.Exists(pyExe))
+                {
+                    using (RegistryKey appKey = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\python.exe"))
+                    {
+                        appKey.SetValue("", pyExe);
+                        appKey.SetValue("Path", pyDir);
+                    }
+                    using (RegistryKey appKey3 = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\python3.exe"))
+                    {
+                        appKey3.SetValue("", pyExe);
+                        appKey3.SetValue("Path", pyDir);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        static void ConfigureVSCodeLocaleKo()
+        {
+            try
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string userDir = Path.Combine(appData, @"Code\User");
+                if (!Directory.Exists(userDir)) Directory.CreateDirectory(userDir);
+
+                string argvPath = Path.Combine(userDir, "argv.json");
+                string content = "{\n  \"locale\": \"ko\"\n}";
+                File.WriteAllText(argvPath, content, Encoding.UTF8);
+            }
+            catch { }
+        }
+
+        static void CreateShortcut(string name, string target, string args, string icon, string desc)
+        {
+            try
+            {
+                string psCmd = string.Format(
+                    "$w=New-Object -ComObject WScript.Shell; " +
+                    "$d=@([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('CommonDesktopDirectory'), 'C:\\Users\\Public\\Desktop') | Where-Object {{ Test-Path $_ }} | Select-Object -Unique; " +
+                    "foreach($p in $d){{ $s=$w.CreateShortcut((Join-Path $p '{0}.lnk')); $s.TargetPath='{1}'; if('{2}'){{$s.Arguments='{2}'}}; if('{3}'){{$s.IconLocation='{3}'}}; if('{4}'){{$s.Description='{4}'}}; $s.Save(); }}",
+                    name, target, args, icon, desc);
+
+                ProcessStartInfo psi = new ProcessStartInfo("powershell", "-NoProfile -Command \"" + psCmd + "\"")
+                {
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                var p = Process.Start(psi);
+                if (p != null) p.WaitForExit();
+                Console.WriteLine("[+] 바로가기 생성: " + name);
+            }
+            catch { }
+        }
+
+        static void BroadcastEnvChange()
+        {
+            try
+            {
+                IntPtr HWND_BROADCAST = new IntPtr(0xffff);
+                uint WM_SETTINGCHANGE = 0x001A;
+                uint SMTO_ABORTIFHUNG = 0x0002;
+                UIntPtr result;
+                SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, UIntPtr.Zero, "Environment", SMTO_ABORTIFHUNG, 5000, out result);
+            }
+            catch { }
+        }
+
+        static int RunProcess(string fileName, string args, bool wait)
+        {
+            ProcessStartInfo psi = new ProcessStartInfo(fileName, args)
+            {
+                UseShellExecute = false
+            };
+            var p = Process.Start(psi);
+            if (wait && p != null)
+            {
+                p.WaitForExit();
+                return p.ExitCode;
+            }
+            return 0;
+        }
+
+        static string RunProcessWithOutput(string fileName, string args)
+        {
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo(fileName, args)
+                {
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+                using (var p = Process.Start(psi))
+                {
+                    string output = p.StandardOutput.ReadToEnd();
+                    p.WaitForExit();
+                    return output;
+                }
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        static void ShowVerifyReport()
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("\n================================================================================");
+            Console.WriteLine("                                  [설치 상태 검증]                              ");
+            Console.WriteLine("================================================================================");
+            Console.ResetColor();
+
+            // 1. Python
+            var py = DetectPython();
+            PrintStatusRow("Python", py.Installed ? (py.Version + " (" + py.Path + ")") : "미설치", py.Installed);
+
+            // 2. VS Code
+            var code = DetectVSCode();
+            PrintStatusRow("Visual Studio Code", code.Installed ? ("설치됨 (" + (code.KoreanExt ? "한국어팩 적용" : "한국어팩 필요") + ")") : "미설치", code.Installed);
+
+            // 3. Docker
+            var docker = DetectDocker();
+            PrintStatusRow("Docker Desktop", docker.Installed ? ("설치됨 (" + docker.Path + ")") : "미설치", docker.Installed);
+
+            // 4. WSL
+            var wsl = DetectWSL();
+            PrintStatusRow("WSL2 / Ubuntu", wsl.Installed ? (wsl.HasUbuntu ? (wsl.DistroName + " 활성화") : "WSL 설치됨 (배포판 필요)") : "미설치", wsl.Installed && wsl.HasUbuntu);
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("================================================================================");
+            Console.ResetColor();
+        }
+
+        static void PrintStatusRow(string name, string status, bool ok)
+        {
+            Console.Write(string.Format("  * {0,-22} : ", name));
+            if (ok)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("[PASS] " + status);
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("[CHECK] " + status);
+            }
+            Console.ResetColor();
+        }
+
+        #endregion
+    }
+}

@@ -1,0 +1,8 @@
+# Temporary downloaded installers
+installers/
+*.tmp
+*.log
+*.pdb
+
+# Rust target if built
+rust-src/target/

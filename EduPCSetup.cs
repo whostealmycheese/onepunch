@@ -33,9 +33,52 @@ namespace OnePunchSetup
             try { Console.ReadKey(true); } catch { }
         }
 
+        static string ReadLineWithVisibleEcho()
+        {
+            try { Console.CursorVisible = true; } catch { }
+            Console.ForegroundColor = ConsoleColor.White;
+            StringBuilder sb = new StringBuilder();
+            try
+            {
+                while (Console.KeyAvailable) Console.ReadKey(true);
+
+                while (true)
+                {
+                    ConsoleKeyInfo key = Console.ReadKey(true);
+                    if (key.Key == ConsoleKey.Enter)
+                    {
+                        Console.WriteLine();
+                        break;
+                    }
+                    if (key.Key == ConsoleKey.Backspace)
+                    {
+                        if (sb.Length > 0)
+                        {
+                            sb.Remove(sb.Length - 1, 1);
+                            Console.Write("\b \b");
+                        }
+                    }
+                    else if (!char.IsControl(key.KeyChar))
+                    {
+                        sb.Append(key.KeyChar);
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.Write(key.KeyChar);
+                    }
+                }
+            }
+            catch
+            {
+                return Console.ReadLine() ?? "";
+            }
+            Console.ResetColor();
+            return sb.ToString().Trim();
+        }
+
         static void Main(string[] args)
         {
-            Console.OutputEncoding = Encoding.UTF8;
+            try { Console.OutputEncoding = Encoding.UTF8; } catch { }
+            try { Console.InputEncoding = Encoding.UTF8; } catch { }
+            try { Console.CursorVisible = true; } catch { }
             try { Console.Title = "원펀치 (OnePunch) v3.0"; } catch { }
             ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768; // Tls12 | Tls11
 
@@ -92,10 +135,9 @@ namespace OnePunchSetup
 
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.Write("\n선택 [0-12]: ");
-                Console.ResetColor();
+                Console.ForegroundColor = ConsoleColor.White;
 
-                string choice = Console.ReadLine();
-                if (choice != null) choice = choice.Trim();
+                string choice = ReadLineWithVisibleEcho();
                 if (string.IsNullOrEmpty(choice)) continue;
 
                 if (choice == "0")
@@ -345,8 +387,10 @@ namespace OnePunchSetup
             Console.WriteLine("  7: Discord");
             Console.WriteLine("  8: WSL 리눅스 개발 환경 설정");
             Console.WriteLine("  9: 터미널 파워 도구 팩");
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write("\n설치할 번호를 쉼표로 입력 (예: 2,3,7 또는 4,5,6): ");
-            string input = Console.ReadLine();
+            Console.ForegroundColor = ConsoleColor.White;
+            string input = ReadLineWithVisibleEcho();
             if (string.IsNullOrEmpty(input)) return;
 
             string[] tokens = input.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
@@ -693,14 +737,36 @@ namespace OnePunchSetup
             else
             {
                 Console.WriteLine("[*] 공식 Discord 인스톨러 다운로드 및 무인 설치 중...");
-                string url = "https://dl.discordapp.net/distro/app/stable/win/x86/DiscordSetup.exe";
                 string installer = Path.Combine(InstallersDir, "DiscordSetup.exe");
 
-                if (DownloadFileWithRetry(url, installer))
+                string[] mirrors = new string[]
+                {
+                    "https://stable.dl2.discordapp.net/distro/app/stable/win/x86/1.0.9059/DiscordSetup.exe",
+                    "https://discord.com/api/download?platform=win",
+                    "https://discord.com/api/downloads/distributions/app/installers/latest?arch=x86&channel=stable&platform=win"
+                };
+
+                bool downloaded = false;
+                foreach (var url in mirrors)
+                {
+                    if (DownloadFileWithRetry(url, installer, 2))
+                    {
+                        downloaded = true;
+                        break;
+                    }
+                }
+
+                if (downloaded && File.Exists(installer))
                 {
                     RunProcess(installer, "-s", true, 180000);
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine("[+] Discord 설치 완료");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("[-] Discord 다운로드 실패로 설치를 건너뜁니다.");
                     Console.ResetColor();
                 }
             }
@@ -1630,7 +1696,8 @@ namespace OnePunchSetup
                     Console.WriteLine(string.Format("[*] 고속 CDN 다운로드 시도 ({0}/{1}): {2}", i, maxRetries, url));
                     using (WebClient client = new WebClient())
                     {
-                        client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+                        client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                        client.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
                         long lastReport = 0;
                         client.DownloadProgressChanged += (s, e) =>
                         {
@@ -1954,22 +2021,42 @@ namespace OnePunchSetup
             Console.WriteLine(" * 만약 재부팅 후에도 '가상화 기능' 에러가 발생한다면, PC 전원을 켤 때 BIOS(F2/Del)");
             Console.WriteLine("   설정에서 Intel Virtual Technology(VT-x) 또는 AMD SVM을 'Enabled'로 변경해주세요.");
             Console.WriteLine("--------------------------------------------------------------------------------");
-            Console.Write(" >> 지금 바로 PC를 다시 시작하시겠습니까? (Y/N): ");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write(" >> 지금 바로 PC를 다시 시작하시겠습니까? [Y/N]: ");
+            Console.ForegroundColor = ConsoleColor.White;
 
             try
             {
-                string ans = Console.ReadLine();
-                if (!string.IsNullOrEmpty(ans) && ans.Trim().Equals("Y", StringComparison.OrdinalIgnoreCase))
+                // 버퍼에 남아있는 이전 키 입력 비우기
+                while (Console.KeyAvailable) Console.ReadKey(true);
+
+                while (true)
                 {
-                    Console.WriteLine("\n[!] 5초 후 시스템을 다시 시작합니다... 작업 중인 창을 저장하세요.");
-                    RunProcess("shutdown.exe", "/r /t 5", false);
-                }
-                else
-                {
-                    Console.WriteLine("\n[*] 나중에 수동으로 PC를 재부팅해주세요. 재부팅 완료 후 모든 기능이 정상 동작합니다.");
+                    ConsoleKeyInfo key = Console.ReadKey(false);
+                    char c = char.ToUpperInvariant(key.KeyChar);
+
+                    if (key.Key == ConsoleKey.Y || c == 'Y')
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("\n\n[!] 5초 후 시스템을 다시 시작합니다... 작업 중인 문서를 저장하세요.");
+                        Console.ResetColor();
+                        RunProcess("shutdown.exe", "/r /t 5", false);
+                        System.Threading.Thread.Sleep(1000);
+                        Environment.Exit(0);
+                    }
+                    else if (key.Key == ConsoleKey.N || c == 'N' || key.Key == ConsoleKey.Enter || key.Key == ConsoleKey.Escape)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkYellow;
+                        Console.WriteLine("\n\n[*] 재부팅을 보류합니다. 가상화 사용 전 반드시 수동으로 PC를 재부팅해주세요.");
+                        Console.ResetColor();
+                        break;
+                    }
                 }
             }
-            catch { }
+            catch
+            {
+                Console.ResetColor();
+            }
         }
 
         #endregion

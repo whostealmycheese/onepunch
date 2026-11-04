@@ -6,3 +6,5 @@ installers/
 
 # Rust target if built
 rust-src/target/
+
+.vercel

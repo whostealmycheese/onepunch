@@ -46,7 +46,7 @@ namespace OnePunchSetup
                 }
                 else if (arg.Equals("/check", StringComparison.OrdinalIgnoreCase) || arg.Equals("--check", StringComparison.OrdinalIgnoreCase))
                 {
-                    cliChoice = "11";
+                    cliChoice = "12";
                 }
                 else if (arg.Equals("/all", StringComparison.OrdinalIgnoreCase) || arg.Equals("--all", StringComparison.OrdinalIgnoreCase))
                 {
@@ -55,7 +55,7 @@ namespace OnePunchSetup
                 else
                 {
                     int n;
-                    if (int.TryParse(arg, out n) && n >= 0 && n <= 11)
+                    if (int.TryParse(arg, out n) && n >= 0 && n <= 12)
                     {
                         cliChoice = arg;
                     }
@@ -91,7 +91,7 @@ namespace OnePunchSetup
                 PrintMenu();
 
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Write("\n선택 [0-11]: ");
+                Console.Write("\n선택 [0-12]: ");
                 Console.ResetColor();
 
                 string choice = Console.ReadLine();
@@ -172,11 +172,12 @@ namespace OnePunchSetup
             Console.WriteLine(" [4] Visual Studio Code");
             Console.WriteLine(" [5] Docker Desktop");
             Console.WriteLine(" [6] WSL2 & Ubuntu 24.04 LTS");
-            Console.WriteLine(" [7] WSL 리눅스 개발 환경 설정");
-            Console.WriteLine(" [8] 터미널 파워 도구 팩");
-            Console.WriteLine(" [9] 다중 선택 설치");
-            Console.WriteLine(" [10] 환경변수 및 바로가기 복구");
-            Console.WriteLine(" [11] 설치 상태 검증");
+            Console.WriteLine(" [7] Discord");
+            Console.WriteLine(" [8] WSL 리눅스 개발 환경 설정");
+            Console.WriteLine(" [9] 터미널 파워 도구 팩");
+            Console.WriteLine(" [10] 다중 선택 설치");
+            Console.WriteLine(" [11] 환경변수 및 바로가기 복구");
+            Console.WriteLine(" [12] 설치 상태 검증");
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine(" [0] 종료");
             Console.ResetColor();
@@ -198,6 +199,7 @@ namespace OnePunchSetup
                     ExecuteVSCode();
                     ExecuteDocker();
                     ExecuteWSL();
+                    ExecuteDiscord();
                     ProvisionWSLLinux("");
                     RepairEnvironmentAndShortcuts();
                     BroadcastEnvChange();
@@ -235,21 +237,26 @@ namespace OnePunchSetup
                     break;
 
                 case "7":
-                    Console.WriteLine("\n>>> [7. WSL 리눅스 개발 환경 설정] 시작\n");
-                    ProvisionWSLLinux("");
+                    Console.WriteLine("\n>>> [7. Discord] 시작\n");
+                    ExecuteDiscord();
                     break;
 
                 case "8":
-                    Console.WriteLine("\n>>> [8. 터미널 파워 도구 팩] 시작\n");
-                    InstallTerminalPowerTools("");
+                    Console.WriteLine("\n>>> [8. WSL 리눅스 개발 환경 설정] 시작\n");
+                    ProvisionWSLLinux("");
                     break;
 
                 case "9":
-                    RunMultiSelect();
+                    Console.WriteLine("\n>>> [9. 터미널 파워 도구 팩] 시작\n");
+                    InstallTerminalPowerTools("");
                     break;
 
                 case "10":
-                    Console.WriteLine("\n>>> [10. 환경변수 및 바로가기 복구] 시작\n");
+                    RunMultiSelect();
+                    break;
+
+                case "11":
+                    Console.WriteLine("\n>>> [11. 환경변수 및 바로가기 복구] 시작\n");
                     RepairEnvironmentAndShortcuts();
                     BroadcastEnvChange();
                     Console.ForegroundColor = ConsoleColor.Green;
@@ -257,14 +264,14 @@ namespace OnePunchSetup
                     Console.ResetColor();
                     break;
 
-                case "11":
-                    Console.WriteLine("\n>>> [11. 설치 상태 검증] 시작\n");
+                case "12":
+                    Console.WriteLine("\n>>> [12. 설치 상태 검증] 시작\n");
                     ShowVerifyReport();
                     break;
 
                 default:
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("잘못된 번호입니다. [0-11] 사이 숫자를 입력하세요.");
+                    Console.WriteLine("잘못된 번호입니다. [0-12] 사이 숫자를 입력하세요.");
                     Console.ResetColor();
                     break;
             }
@@ -278,9 +285,10 @@ namespace OnePunchSetup
             Console.WriteLine("  4: Visual Studio Code");
             Console.WriteLine("  5: Docker Desktop");
             Console.WriteLine("  6: WSL2 & Ubuntu 24.04 LTS");
-            Console.WriteLine("  7: WSL 리눅스 개발 환경 설정");
-            Console.WriteLine("  8: 터미널 파워 도구 팩");
-            Console.Write("\n설치할 번호를 쉼표로 입력 (예: 2,3,4 또는 5,6,7): ");
+            Console.WriteLine("  7: Discord");
+            Console.WriteLine("  8: WSL 리눅스 개발 환경 설정");
+            Console.WriteLine("  9: 터미널 파워 도구 팩");
+            Console.Write("\n설치할 번호를 쉼표로 입력 (예: 2,3,7 또는 4,5,6): ");
             string input = Console.ReadLine();
             if (string.IsNullOrEmpty(input)) return;
 
@@ -294,8 +302,9 @@ namespace OnePunchSetup
             if (selected.Contains("4")) ExecuteVSCode();
             if (selected.Contains("5")) ExecuteDocker();
             if (selected.Contains("6")) ExecuteWSL();
-            if (selected.Contains("7")) ProvisionWSLLinux("");
-            if (selected.Contains("8")) InstallTerminalPowerTools("");
+            if (selected.Contains("7")) ExecuteDiscord();
+            if (selected.Contains("8")) ProvisionWSLLinux("");
+            if (selected.Contains("9")) InstallTerminalPowerTools("");
 
             RepairEnvironmentAndShortcuts();
             BroadcastEnvChange();
@@ -317,7 +326,7 @@ namespace OnePunchSetup
             }
             catch { }
 
-            string[] procs = { "git", "Code", "Docker Desktop", "python" };
+            string[] procs = { "git", "Code", "Docker Desktop", "python", "Discord" };
             foreach (var p in procs)
             {
                 if (Process.GetProcessesByName(p).Length > 0)
@@ -655,6 +664,60 @@ namespace OnePunchSetup
             CreateRobustWSLShortcut(detected.HasUbuntu ? detected.DistroName : "Ubuntu-24.04");
         }
 
+        static void ExecuteDiscord()
+        {
+            Console.WriteLine("\n[설치] Discord 점검 및 설치");
+
+            var detected = DetectDiscord();
+
+            if (detected.Installed)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("[-] 이미 설치됨: Discord " + detected.Version + " (" + detected.Exe + ")");
+                Console.ResetColor();
+            }
+            else
+            {
+                bool installed = false;
+
+                // 1. Chocolatey 우선 설치
+                if (IsChocoAvailable())
+                {
+                    Console.WriteLine("[*] Chocolatey로 Discord 설치 중...");
+                    int code = RunProcess("choco.exe", "install discord -y --no-progress", true);
+                    if (code == 0)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] Chocolatey Discord 설치 완료");
+                        Console.ResetColor();
+                        installed = true;
+                    }
+                }
+
+                // 2. 공식 인스톨러 폴백
+                if (!installed)
+                {
+                    Console.WriteLine("[*] 공식 Discord 인스톨러 다운로드 및 설치 중...");
+                    string url = "https://dl.discordapp.net/distro/app/stable/win/x86/DiscordSetup.exe";
+                    string installer = Path.Combine(InstallersDir, "DiscordSetup.exe");
+
+                    if (DownloadFileWithRetry(url, installer))
+                    {
+                        RunProcess(installer, "-s", true);
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("[+] Discord 설치 완료");
+                        Console.ResetColor();
+                    }
+                }
+            }
+
+            var fresh = DetectDiscord();
+            if (fresh.Installed && File.Exists(fresh.Exe))
+            {
+                CreateShortcut("Discord", fresh.Exe, "", fresh.Exe + ",0", "Discord");
+            }
+        }
+
         static void ProvisionWSLLinux(string distroName)
         {
             Console.WriteLine("\n[설정] WSL 리눅스 내부 개발 환경 설정");
@@ -834,11 +897,81 @@ namespace OnePunchSetup
             var wsl = DetectWSL();
             CreateRobustWSLShortcut(wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04");
             FixWSLDockerPermission();
+
+            var discord = DetectDiscord();
+            if (discord.Installed && File.Exists(discord.Exe))
+            {
+                CreateShortcut("Discord", discord.Exe, "", discord.Exe + ",0", "Discord");
+            }
         }
 
         #endregion
 
         #region Multi-Tier Deep Detection Engine
+
+        public class DiscordInfo { public bool Installed; public string Version; public string Exe; public string Path; }
+        static DiscordInfo DetectDiscord()
+        {
+            var res = new DiscordInfo { Installed = false, Version = "", Exe = "", Path = "" };
+
+            string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string discordDir = Path.Combine(localApp, "Discord");
+
+            if (Directory.Exists(discordDir))
+            {
+                string updateExe = Path.Combine(discordDir, "Update.exe");
+                try
+                {
+                    var appDirs = Directory.GetDirectories(discordDir, "app-*");
+                    Array.Sort(appDirs);
+                    if (appDirs.Length > 0)
+                    {
+                        string latestAppDir = appDirs[appDirs.Length - 1];
+                        string appExe = Path.Combine(latestAppDir, "Discord.exe");
+                        if (File.Exists(appExe))
+                        {
+                            res.Installed = true;
+                            res.Exe = appExe;
+                            res.Path = latestAppDir;
+                            res.Version = Path.GetFileName(latestAppDir).Replace("app-", "");
+                        }
+                    }
+                }
+                catch { }
+
+                if (!res.Installed && File.Exists(updateExe))
+                {
+                    res.Installed = true;
+                    res.Exe = updateExe;
+                    res.Path = discordDir;
+                }
+            }
+
+            if (!res.Installed)
+            {
+                try
+                {
+                    using (var k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\Discord"))
+                    {
+                        if (k != null)
+                        {
+                            string loc = k.GetValue("InstallLocation") as string;
+                            string ver = k.GetValue("DisplayVersion") as string;
+                            if (!string.IsNullOrEmpty(loc) && Directory.Exists(loc))
+                            {
+                                res.Installed = true;
+                                res.Version = ver ?? "";
+                                res.Path = loc;
+                                res.Exe = Path.Combine(loc, "Discord.exe");
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            return res;
+        }
 
         public class GitInfo { public bool Installed; public string Version; public string Path; }
         static GitInfo DetectGit()
@@ -1566,6 +1699,10 @@ namespace OnePunchSetup
             // 5. WSL
             var wsl = DetectWSL();
             PrintStatusRow("WSL2 / Ubuntu", wsl.Installed ? (wsl.HasUbuntu ? (wsl.DistroName + " 활성화") : "WSL 설치됨 (배포판 필요)") : "미설치", wsl.Installed && wsl.HasUbuntu);
+
+            // 6. Discord
+            var discord = DetectDiscord();
+            PrintStatusRow("Discord", discord.Installed ? (discord.Version + " (" + discord.Path + ")") : "미설치", discord.Installed);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("================================================================================");

@@ -20,6 +20,9 @@ namespace OnePunchSetup
             IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam,
             uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
 
+        [DllImport("kernel32.dll")]
+        public static extern bool IsProcessorFeaturePresent(int ProcessorFeature);
+
         static void SafeClear()
         {
             try { Console.Clear(); } catch { }
@@ -197,13 +200,15 @@ namespace OnePunchSetup
                     ExecuteGit();
                     ExecutePython();
                     ExecuteVSCode();
-                    ExecuteDocker();
                     ExecuteWSL();
+                    ExecuteDocker();
                     ExecuteDiscord();
                     ProvisionWSLLinux("");
+                    InstallTerminalPowerTools("");
                     RepairEnvironmentAndShortcuts();
                     BroadcastEnvChange();
                     ShowVerifyReport();
+                    PromptPostInstallReboot();
                     break;
 
                 case "2":
@@ -300,8 +305,8 @@ namespace OnePunchSetup
             if (selected.Contains("2")) ExecuteGit();
             if (selected.Contains("3")) ExecutePython();
             if (selected.Contains("4")) ExecuteVSCode();
-            if (selected.Contains("5")) ExecuteDocker();
             if (selected.Contains("6")) ExecuteWSL();
+            if (selected.Contains("5")) ExecuteDocker();
             if (selected.Contains("7")) ExecuteDiscord();
             if (selected.Contains("8")) ProvisionWSLLinux("");
             if (selected.Contains("9")) InstallTerminalPowerTools("");
@@ -309,6 +314,11 @@ namespace OnePunchSetup
             RepairEnvironmentAndShortcuts();
             BroadcastEnvChange();
             ShowVerifyReport();
+
+            if (selected.Contains("5") || selected.Contains("6"))
+            {
+                PromptPostInstallReboot();
+            }
         }
 
         static void PerformPreFlightChecks()
@@ -321,6 +331,25 @@ namespace OnePunchSetup
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.WriteLine("[경고] C: 드라이브 여유 공간 부족 (" + freeGb + " GB / 권장: 15GB 이상)");
+                    Console.ResetColor();
+                }
+            }
+            catch { }
+
+            try
+            {
+                bool virtEnabled = IsProcessorFeaturePresent(21);
+                if (!virtEnabled)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("[주의] CPU 하드웨어 가상화(VT-x / AMD SVM)가 BIOS에서 꺼져 있을 수 있습니다.");
+                    Console.WriteLine("       (WSL2/Docker 사용을 위해 부팅 시 BIOS에서 Virtualization을 활성화해야 합니다)");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("[+] CPU 하드웨어 가상화(VT-x / AMD SVM) 지원 확인됨");
                     Console.ResetColor();
                 }
             }
@@ -639,9 +668,12 @@ namespace OnePunchSetup
 
             try
             {
-                RunProcess("dism.exe", "/online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart", true);
-                RunProcess("dism.exe", "/online /enable-feature /featurename:VirtualMachinePlatform /all /norestart", true);
-                RunProcess("wsl.exe", "--set-default-version 2", true);
+                Console.WriteLine("[*] Windows 가상화 및 하이퍼바이저 필수 기능 구성 중...");
+                RunProcess("dism.exe", "/online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart", true, 60000);
+                RunProcess("dism.exe", "/online /enable-feature /featurename:VirtualMachinePlatform /all /norestart", true, 60000);
+                RunProcess("dism.exe", "/online /enable-feature /featurename:HypervisorPlatform /all /norestart", true, 60000);
+                RunProcess("bcdedit.exe", "/set hypervisorlaunchtype auto", true, 10000);
+                RunProcess("wsl.exe", "--set-default-version 2", true, 30000);
             }
             catch { }
 
@@ -655,10 +687,19 @@ namespace OnePunchSetup
             else
             {
                 Console.WriteLine("[*] Ubuntu 24.04 LTS 등록 중 (wsl --install -d Ubuntu-24.04 --no-launch)...");
-                RunProcess("wsl.exe", "--install -d Ubuntu-24.04 --no-launch", true);
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] Ubuntu 24.04 배포판 등록 완료");
-                Console.ResetColor();
+                int code = RunProcess("wsl.exe", "--install -d Ubuntu-24.04 --no-launch", true, 300000);
+                if (code == 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("[+] Ubuntu 24.04 배포판 등록 완료");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("[!] 배포판 초기 등록 완료 (가상화 기능 반영을 위해 PC 재부팅이 필요합니다)");
+                    Console.ResetColor();
+                }
             }
 
             CreateRobustWSLShortcut(detected.HasUbuntu ? detected.DistroName : "Ubuntu-24.04");
@@ -724,9 +765,12 @@ namespace OnePunchSetup
             Console.WriteLine("\n[설정] WSL 리눅스 내부 개발 환경 설정");
 
             var wsl = DetectWSL();
-            if (!wsl.Installed)
+            if (!wsl.Installed || !wsl.HasUbuntu)
             {
-                Console.WriteLine("[-] WSL 미설치");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("[-] WSL 또는 Ubuntu 배포판이 아직 준비되지 않았습니다.");
+                Console.WriteLine("    (PC 재부팅 후 배포판이 등록되면 [8]번 메뉴로 개별 실행할 수 있습니다)");
+                Console.ResetColor();
                 return;
             }
 
@@ -735,16 +779,16 @@ namespace OnePunchSetup
 
             Console.WriteLine("[*] 패키지 설치 중 (build-essential, git, curl, venv, ruff, gh)...");
             string aptCmd = "apt-get update && apt-get install -y build-essential curl wget git unzip python3-pip python3-venv gh jq";
-            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, aptCmd), true);
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, aptCmd), true, 180000);
 
             string ruffCmd = "python3 -m pip install --break-system-packages ruff 2>/dev/null || pip install ruff 2>/dev/null || true";
-            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, ruffCmd), true);
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, ruffCmd), true, 60000);
 
             Console.WriteLine("[*] 작업 디렉터리 (~/projects) 생성 중...");
             string projectsCmd = "id -un 1000 2>/dev/null | xargs -I {} bash -c 'mkdir -p /home/{}/projects && chown -R {}:{} /home/{}/projects'";
-            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, projectsCmd), true);
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, projectsCmd), true, 30000);
 
-            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"git config --system init.defaultBranch main\"", distro), true);
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"git config --system init.defaultBranch main\"", distro), true, 20000);
 
             FixWSLDockerPermission();
 
@@ -758,16 +802,19 @@ namespace OnePunchSetup
             Console.WriteLine("\n[설정] 터미널 파워 도구 팩 설치");
 
             var wsl = DetectWSL();
-            if (!wsl.Installed)
+            if (!wsl.Installed || !wsl.HasUbuntu)
             {
-                Console.WriteLine("[-] WSL 미설치");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("[-] WSL 또는 Ubuntu 배포판이 아직 준비되지 않았습니다.");
+                Console.WriteLine("    (PC 재부팅 후 배포판이 등록되면 [9]번 메뉴로 개별 실행할 수 있습니다)");
+                Console.ResetColor();
                 return;
             }
 
             string distro = string.IsNullOrEmpty(distroName) ? (wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04") : distroName;
             Console.WriteLine("[*] 도구 설치 중 (btop, tmux, ripgrep, fzf, zoxide, tealdeer)...");
             string cmd = "apt-get update && apt-get install -y btop tmux ripgrep fzf zoxide tealdeer && tldr --update 2>/dev/null || true";
-            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, cmd), true);
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, cmd), true, 180000);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("[+] 터미널 파워 도구 팩 설치 완료");
@@ -870,11 +917,11 @@ namespace OnePunchSetup
                     }
                 }
 
-                // 2. WSL 내부 docker 소켓 디렉터리 및 그룹 권한 구성
-                if (wsl.Installed)
+                // 2. WSL 내부 docker 소켓 디렉터리 및 그룹 권한 구성 (Ubuntu 배포판이 설치된 경우에만 실행)
+                if (wsl.Installed && wsl.HasUbuntu)
                 {
                     string cmd = "mkdir -p /etc/docker && groupadd -f docker && (id -un 1000 2>/dev/null | xargs -I {} usermod -aG docker {})";
-                    RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, cmd), true);
+                    RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, cmd), true, 10000);
                     Console.WriteLine("[+] WSL 리눅스 docker 그룹 권한 구성 완료");
                 }
             }
@@ -1000,6 +1047,24 @@ namespace OnePunchSetup
             {
                 CreateShortcut("Discord", discord.Exe, "", discord.Exe + ",0", "Discord");
             }
+
+            // 바탕화면 중복 바로가기 정리 (공용 바탕화면과 개인 바탕화면에 중복 존재 시 개인 쪽 삭제하여 아이콘 1개만 유지)
+            try
+            {
+                string userDesktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                string publicDesktop = Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory);
+                string[] lnks = { "Docker Desktop.lnk", "Visual Studio Code.lnk", "Discord.lnk", "Ubuntu 24.04 LTS (WSL).lnk", "Python (명령줄).lnk" };
+                foreach (var lnk in lnks)
+                {
+                    string pub = Path.Combine(publicDesktop, lnk);
+                    string usr = Path.Combine(userDesktop, lnk);
+                    if (File.Exists(pub) && File.Exists(usr))
+                    {
+                        try { File.Delete(usr); } catch { }
+                    }
+                }
+            }
+            catch { }
         }
 
         #endregion
@@ -1774,11 +1839,29 @@ namespace OnePunchSetup
         {
             try
             {
+                string userDesktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                string publicDesktop = Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory);
+
+                string publicLnk = Path.Combine(publicDesktop, name + ".lnk");
+                string userLnk = Path.Combine(userDesktop, name + ".lnk");
+
+                // 만약 공용 바탕화면(Public Desktop)에 이미 바로가기가 있다면,
+                // 사용자 바탕화면의 중복 바로가기를 지우고 추가 생성을 건너뜁니다 (아이콘 2개 중복 생성 원천 차단).
+                if (File.Exists(publicLnk))
+                {
+                    if (File.Exists(userLnk))
+                    {
+                        try { File.Delete(userLnk); } catch { }
+                    }
+                    Console.WriteLine("[+] 바로가기 확인됨: " + name);
+                    return;
+                }
+
+                // 공용에 없는 경우 사용자 바탕화면에 단 1개만 생성
                 string psCmd = string.Format(
                     "$w=New-Object -ComObject WScript.Shell; " +
-                    "$d=@([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('CommonDesktopDirectory'), 'C:\\Users\\Public\\Desktop') | Where-Object {{ Test-Path $_ }} | Select-Object -Unique; " +
-                    "foreach($p in $d){{ $s=$w.CreateShortcut((Join-Path $p '{0}.lnk')); $s.TargetPath='{1}'; if('{2}'){{$s.Arguments='{2}'}}; if('{3}'){{$s.IconLocation='{3}'}}; if('{4}'){{$s.Description='{4}'}}; $s.Save(); }}",
-                    name, target, args, icon, desc);
+                    "$s=$w.CreateShortcut('{0}'); $s.TargetPath='{1}'; if('{2}'){{$s.Arguments='{2}'}}; if('{3}'){{$s.IconLocation='{3}'}}; if('{4}'){{$s.Description='{4}'}}; $s.Save();",
+                    userLnk.Replace("'", "''"), target.Replace("'", "''"), args.Replace("'", "''"), icon.Replace("'", "''"), desc.Replace("'", "''"));
 
                 ProcessStartInfo psi = new ProcessStartInfo("powershell", "-NoProfile -Command \"" + psCmd + "\"")
                 {
@@ -1786,7 +1869,7 @@ namespace OnePunchSetup
                     UseShellExecute = false
                 };
                 var p = Process.Start(psi);
-                if (p != null) p.WaitForExit();
+                if (p != null) p.WaitForExit(5000);
                 Console.WriteLine("[+] 바로가기 생성: " + name);
             }
             catch { }
@@ -1805,22 +1888,36 @@ namespace OnePunchSetup
             catch { }
         }
 
-        static int RunProcess(string fileName, string args, bool wait)
+        static int RunProcess(string fileName, string args, bool wait, int timeoutMs = 120000)
         {
-            ProcessStartInfo psi = new ProcessStartInfo(fileName, args)
+            try
             {
-                UseShellExecute = false
-            };
-            var p = Process.Start(psi);
-            if (wait && p != null)
+                ProcessStartInfo psi = new ProcessStartInfo(fileName, args)
+                {
+                    UseShellExecute = false
+                };
+                var p = Process.Start(psi);
+                if (wait && p != null)
+                {
+                    if (!p.WaitForExit(timeoutMs))
+                    {
+                        try { p.Kill(); } catch { }
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("[경고] 작업 시간 초과(타임아웃)로 진행을 계속합니다: " + fileName);
+                        Console.ResetColor();
+                        return -1;
+                    }
+                    return p.ExitCode;
+                }
+            }
+            catch (Exception ex)
             {
-                p.WaitForExit();
-                return p.ExitCode;
+                Console.WriteLine("프로세스 실행 오류 (" + fileName + "): " + ex.Message);
             }
             return 0;
         }
 
-        static string RunProcessWithOutput(string fileName, string args)
+        static string RunProcessWithOutput(string fileName, string args, int timeoutMs = 15000)
         {
             try
             {
@@ -1834,7 +1931,10 @@ namespace OnePunchSetup
                 using (var p = Process.Start(psi))
                 {
                     string output = p.StandardOutput.ReadToEnd();
-                    p.WaitForExit();
+                    if (!p.WaitForExit(timeoutMs))
+                    {
+                        try { p.Kill(); } catch { }
+                    }
                     return output;
                 }
             }
@@ -1880,6 +1980,11 @@ namespace OnePunchSetup
             var dockerWsl = DetectDockerWSLIntegration();
             PrintStatusRow("Docker-WSL2 연동", dockerWsl.Configured ? dockerWsl.Details : ("연동 필요 (" + dockerWsl.Details + ")"), dockerWsl.Configured);
 
+            // 8. 하드웨어 가상화 (VT-x / AMD SVM)
+            bool biosVirt = false;
+            try { biosVirt = IsProcessorFeaturePresent(21); } catch { }
+            PrintStatusRow("하드웨어 가상화", biosVirt ? "활성화됨 (VT-x/SVM 정상)" : "확인 필요 (BIOS VT-x/SVM 활성화 요망)", biosVirt);
+
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("================================================================================");
             Console.ResetColor();
@@ -1899,6 +2004,36 @@ namespace OnePunchSetup
                 Console.WriteLine("[CHECK] " + status);
             }
             Console.ResetColor();
+        }
+
+        static void PromptPostInstallReboot()
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("================================================================================");
+            Console.WriteLine("                    [중요] 설치 완료 및 PC 재부팅 안내                          ");
+            Console.WriteLine("================================================================================");
+            Console.ResetColor();
+            Console.WriteLine(" * WSL2 및 Docker Desktop의 가상화 하이퍼바이저 엔진은 Windows 재부팅 후 로드됩니다.");
+            Console.WriteLine(" * 만약 재부팅 후에도 '가상화 기능' 에러가 발생한다면, PC 전원을 켤 때 BIOS(F2/Del)");
+            Console.WriteLine("   설정에서 Intel Virtual Technology(VT-x) 또는 AMD SVM을 'Enabled'로 변경해주세요.");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.Write(" >> 지금 바로 PC를 다시 시작하시겠습니까? (Y/N): ");
+
+            try
+            {
+                string ans = Console.ReadLine();
+                if (!string.IsNullOrEmpty(ans) && ans.Trim().Equals("Y", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine("\n[!] 5초 후 시스템을 다시 시작합니다... 작업 중인 창을 저장하세요.");
+                    RunProcess("shutdown.exe", "/r /t 5", false);
+                }
+                else
+                {
+                    Console.WriteLine("\n[*] 나중에 수동으로 PC를 재부팅해주세요. 재부팅 완료 후 모든 기능이 정상 동작합니다.");
+                }
+            }
+            catch { }
         }
 
         #endregion

@@ -37,8 +37,9 @@
 * **WSL2 NVIDIA CUDA 하드웨어 가속**:
   * RTX 5060 전용 WSL2 Direct3D 및 CUDA 드라이버(`/usr/lib/wsl/lib/libcuda.so.1`)를 점검하고 `ldconfig`를 동기화하여 AI 실습 및 컨테이너 가속을 즉시 활성화합니다.
 
-### 3. 🛡️ 공식 고속 무인 인스톨러 직접 연동 (Direct Official Silent Engine)
-* 제3자 패키지 매니저의 저장소 지연이나 해시 불일치 없이, 제조사 공식 CDN에서 직접 안전하게 다운로드하여 백그라운드 무인 설치합니다.
+### 3. 👁️ 눈이 편안한 한글 진행 안내 및 최적 템포 (Human-Friendly Pacing & Korean Progress)
+* 설치 중 콘솔 화면이 어지럽게 번쩍이며 빠르게 지나가는 피로감을 없애고, 친절하고 직관적인 한국어 단계별 안내(`[1/7 단계] Git for Windows 설치 중...`)와 편안한 템포로 설치가 진행됩니다.
+* 하드웨어(CPU, RAM, GPU)와 윈도우 Active Directory(AD) 도메인 계정 환경을 순수 Win32 API로 100% 실시간 자동 감지합니다.
 
 ### 4. 🐧 WSL2 리눅스 기본 계정 자동 프로비저닝 (`developer / 1234`)
 * 리눅스 설치 직후 검은 콘솔창에 화면에 글자나 별표(*)가 보이지 않아 학생들이 패닉에 빠지는 UNIX 비밀번호 입력 단계를 자동화하였습니다.
@@ -56,12 +57,11 @@
 ================================================================================
                             [원펀치 (OnePunch) v3.0]                            
 ================================================================================
- * 감지 사양: Intel(R) Core(TM) Ultra 9 285K (24 코어) | 32GB RAM | RTX 5060
- * 계정 환경: GNIA\developer3025 [Active Directory 도메인 연동 환경 감지 - 다중 사용자 모드]
- * 설치 엔진: 공식 고속 무인 인스톨러 (Direct Official Silent Engine)
+ * 감지 사양: Intel(R) Core(TM) Ultra 9 285K (24 코어) | 32GB RAM | NVIDIA GeForce RTX 5060 / Intel(R) Graphics
+ * 계정 환경: GNIA\developer3025 [Active Directory 도메인 연동 환경 - 다중 사용자 모드]
  * 실습실 PC는 공용이므로 퇴실 전 반드시 GitHub에 'git push' 하세요.
 --------------------------------------------------------------------------------
- [1] 전체 설치 (1단계 완료 후 가상화 재부팅 & 자동 이어하기) [추천]
+ [1] 전체 설치 (차례대로 자동 설치 및 가상화 재부팅 안내) [추천]
  [2] Git for Windows
  [3] Python 3.12
  [4] Visual Studio Code (한국어 언어팩 단독 구성)

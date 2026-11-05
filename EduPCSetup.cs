@@ -27,6 +27,41 @@ namespace OnePunchSetup
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool GetPhysicallyInstalledSystemMemory(out ulong TotalMemoryInKilobytes);
 
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        public struct MEMORYSTATUSEX
+        {
+            public uint dwLength;
+            public uint dwMemoryLoad;
+            public ulong ullTotalPhys;
+            public ulong ullAvailPhys;
+            public ulong ullTotalPageFile;
+            public ulong ullAvailPageFile;
+            public ulong ullTotalVirtual;
+            public ulong ullAvailVirtual;
+            public ulong ullAvailExtendedVirtual;
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+        public enum NetJoinStatus
+        {
+            NetSetupUnknownStatus = 0,
+            NetSetupUnjoined,
+            NetSetupWorkgroupName,
+            NetSetupDomainName
+        }
+
+        [DllImport("netapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern int NetGetJoinInformation(
+            string server,
+            out IntPtr domain,
+            out NetJoinStatus status);
+
+        [DllImport("netapi32.dll")]
+        public static extern int NetApiBufferFree(IntPtr Buffer);
+
         static void SafeClear()
         {
             try { Console.Clear(); } catch { }
@@ -78,14 +113,14 @@ namespace OnePunchSetup
             return sb.ToString().Trim();
         }
 
-        #region Active Directory & Hardware Optimization (Intel Core Ultra 9 / RTX 5060 / 32GB RAM)
+        #region Active Directory & Genuine System Specs Detection
 
         public class SystemSpecInfo
         {
-            public string CpuName = "Intel Core Processor";
+            public string CpuName = "";
             public int Cores = Environment.ProcessorCount;
-            public ulong RamGb = 32;
-            public string GpuName = "NVIDIA GeForce RTX 5060";
+            public ulong RamGb = 0;
+            public string GpuName = "";
             public string Domain = Environment.UserDomainName;
             public string User = Environment.UserName;
             public bool IsDomainJoined = false;
@@ -94,6 +129,45 @@ namespace OnePunchSetup
         static SystemSpecInfo DetectSystemSpecs()
         {
             var info = new SystemSpecInfo();
+            info.User = Environment.UserName;
+            info.Domain = Environment.UserDomainName;
+            info.Cores = Environment.ProcessorCount;
+
+            // 1. Genuine Active Directory Domain detection via Win32 netapi32.dll
+            try
+            {
+                IntPtr pDomain;
+                NetJoinStatus joinStatus;
+                int res = NetGetJoinInformation(null, out pDomain, out joinStatus);
+                if (res == 0 && pDomain != IntPtr.Zero)
+                {
+                    try
+                    {
+                        string domainName = Marshal.PtrToStringUni(pDomain);
+                        if (!string.IsNullOrEmpty(domainName))
+                        {
+                            info.Domain = domainName;
+                        }
+                    }
+                    finally
+                    {
+                        NetApiBufferFree(pDomain);
+                    }
+                    info.IsDomainJoined = (joinStatus == NetJoinStatus.NetSetupDomainName);
+                }
+                else
+                {
+                    info.IsDomainJoined = !string.IsNullOrEmpty(info.Domain) &&
+                                          !info.Domain.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch
+            {
+                info.IsDomainJoined = !string.IsNullOrEmpty(info.Domain) &&
+                                      !info.Domain.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase);
+            }
+
+            // 2. Real CPU Detection via Registry
             try
             {
                 using (var key = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\CentralProcessor\0"))
@@ -101,29 +175,56 @@ namespace OnePunchSetup
                     if (key != null)
                     {
                         string cpu = key.GetValue("ProcessorNameString") as string;
-                        if (!string.IsNullOrEmpty(cpu)) info.CpuName = cpu.Trim();
+                        if (!string.IsNullOrEmpty(cpu))
+                        {
+                            info.CpuName = System.Text.RegularExpressions.Regex.Replace(cpu.Trim(), @"\s+", " ");
+                        }
                     }
                 }
             }
             catch { }
 
+            if (string.IsNullOrEmpty(info.CpuName))
+            {
+                string envCpu = Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER");
+                info.CpuName = !string.IsNullOrEmpty(envCpu) ? envCpu.Trim() : "표준 x64 프로세서";
+            }
+
+            // 3. Real RAM Detection via Win32 API
             try
             {
                 ulong memKb;
                 if (GetPhysicallyInstalledSystemMemory(out memKb) && memKb > 0)
                 {
-                    info.RamGb = (memKb + 1048575) / 1048576;
+                    info.RamGb = (ulong)Math.Round((double)memKb / (1024.0 * 1024.0));
                 }
             }
             catch { }
 
+            if (info.RamGb == 0)
+            {
+                try
+                {
+                    MEMORYSTATUSEX memStatus = new MEMORYSTATUSEX();
+                    memStatus.dwLength = (uint)Marshal.SizeOf(typeof(MEMORYSTATUSEX));
+                    if (GlobalMemoryStatusEx(ref memStatus) && memStatus.ullTotalPhys > 0)
+                    {
+                        info.RamGb = (ulong)Math.Round((double)memStatus.ullTotalPhys / (1024.0 * 1024.0 * 1024.0));
+                    }
+                }
+                catch { }
+            }
+
+            // 4. Real GPU Detection via Registry (prioritize dedicated NVIDIA / AMD / Arc)
             try
             {
                 using (var baseKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"))
                 {
                     if (baseKey != null)
                     {
-                        List<string> gpus = new List<string>();
+                        List<string> dedicatedGpus = new List<string>();
+                        List<string> otherGpus = new List<string>();
+
                         foreach (var sub in baseKey.GetSubKeyNames())
                         {
                             if (sub.StartsWith("0"))
@@ -133,35 +234,61 @@ namespace OnePunchSetup
                                     if (devKey != null)
                                     {
                                         string desc = devKey.GetValue("DriverDesc") as string;
-                                        if (!string.IsNullOrEmpty(desc) &&
-                                            !desc.Contains("Remote") &&
-                                            !desc.Contains("Basic Display") &&
-                                            !gpus.Contains(desc))
+                                        if (!string.IsNullOrEmpty(desc))
                                         {
-                                            gpus.Add(desc);
+                                            desc = desc.Trim();
+                                            if (desc.IndexOf("Remote", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                                desc.IndexOf("Basic Display", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                                desc.IndexOf("Citrix", StringComparison.OrdinalIgnoreCase) >= 0)
+                                            {
+                                                continue;
+                                            }
+
+                                            if (desc.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                                desc.IndexOf("GeForce", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                                desc.IndexOf("Radeon", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                                desc.IndexOf("Arc", StringComparison.OrdinalIgnoreCase) >= 0)
+                                            {
+                                                if (!dedicatedGpus.Contains(desc)) dedicatedGpus.Add(desc);
+                                            }
+                                            else
+                                            {
+                                                if (!otherGpus.Contains(desc)) otherGpus.Add(desc);
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                        if (gpus.Count > 0) info.GpuName = string.Join(" / ", gpus.ToArray());
+
+                        List<string> allGpus = new List<string>();
+                        allGpus.AddRange(dedicatedGpus);
+                        allGpus.AddRange(otherGpus);
+
+                        if (allGpus.Count > 0)
+                        {
+                            info.GpuName = string.Join(" / ", allGpus.ToArray());
+                        }
                     }
                 }
             }
             catch { }
 
-            try
+            if (string.IsNullOrEmpty(info.GpuName))
             {
-                info.IsDomainJoined = !info.Domain.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase);
+                info.GpuName = "표준 디스플레이 어댑터";
             }
-            catch { }
 
             return info;
         }
 
         static void ConfigureDockerUsersGroup()
         {
-            Console.WriteLine("[*] Active Directory(AD) 및 다중 사용자용 'docker-users' 그룹 권한 구성 중...");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(" [*] Active Directory(AD) 및 다중 사용자용 'docker-users' 그룹 권한을 설정하고 있습니다...");
+            Console.ResetColor();
+            System.Threading.Thread.Sleep(400);
+
             try
             {
                 // 1. docker-users 로컬 그룹 생성 (이미 존재 시 발생하는 1379 메시지는 정상 처리하되 콘솔 출력 방지)
@@ -188,14 +315,15 @@ namespace OnePunchSetup
                 RunProcessQuiet("net.exe", "localgroup docker-users \"GNIA\\SG-GNIA-Students-All\" /add", 10000);
                 RunProcessQuiet("net.exe", "localgroup docker-users \"GNIA\\Domain Users\" /add", 10000);
 
+                System.Threading.Thread.Sleep(400);
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] docker-users 그룹 권한 구성 완료 (AD 도메인 학생 계정 및 인증된 사용자 권한 부여)");
+                Console.WriteLine(" [✔] docker-users 그룹 권한 구성 완료 (AD 도메인 학생 계정 및 인증된 사용자 권한 부여)");
                 Console.ResetColor();
             }
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("[-] docker-users 그룹 구성 안내: " + ex.Message);
+                Console.WriteLine(" [-] docker-users 그룹 구성 안내: " + ex.Message);
                 Console.ResetColor();
             }
         }
@@ -224,9 +352,13 @@ namespace OnePunchSetup
             {
                 var specs = DetectSystemSpecs();
                 ulong wslRam = specs.RamGb >= 32 ? 24 : (specs.RamGb * 3 / 4);
-                int cores = specs.Cores > 0 ? specs.Cores : 24;
+                if (wslRam < 4) wslRam = 4;
+                int cores = specs.Cores > 0 ? specs.Cores : Environment.ProcessorCount;
+                if (cores < 2) cores = 2;
 
-                Console.WriteLine(string.Format("[*] 하드웨어 사양({0} / {1}GB RAM) 맞춤 WSL2 가상머신 최적화 구성 중...", specs.CpuName, specs.RamGb));
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine(string.Format(" [*] 하드웨어 사양 맞춤 WSL2 가상머신 최적화 구성 중... ({0} / {1}GB RAM)", specs.CpuName, specs.RamGb));
+                Console.ResetColor();
 
                 string wslConfig =
                     "# OnePunch Optimized WSL2 Configuration\n" +
@@ -281,14 +413,15 @@ namespace OnePunchSetup
                     catch { }
                 }
 
+                System.Threading.Thread.Sleep(400);
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine(string.Format("[+] WSL2 가상머신 최적화 완료 (메모리 {0}GB, vCPU {1}개, autoMemoryReclaim 활성화)", wslRam, cores));
+                Console.WriteLine(string.Format(" [✔] WSL2 가상머신 최적화 완료 (메모리 {0}GB, vCPU {1}개, autoMemoryReclaim 활성화)", wslRam, cores));
                 Console.ResetColor();
             }
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("[-] WSL2 최적화 설정 안내: " + ex.Message);
+                Console.WriteLine(" [-] WSL2 최적화 설정 안내: " + ex.Message);
                 Console.ResetColor();
             }
         }
@@ -305,21 +438,26 @@ namespace OnePunchSetup
                     if (File.Exists(candidate)) gitExe = candidate;
                 }
 
-                Console.WriteLine("[*] Active Directory 실습실 다중 사용자용 머신 전역 Git 시스템 설정 중...");
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine(" [*] 실습실 다중 사용자 및 도메인 환경용 Git 전역 설정을 적용하고 있습니다...");
+                Console.ResetColor();
+                System.Threading.Thread.Sleep(300);
+
                 RunProcessQuiet(gitExe, "config --system init.defaultBranch main", 10000);
                 RunProcessQuiet(gitExe, "config --system core.autocrlf true", 10000);
                 RunProcessQuiet(gitExe, "config --system core.quotepath false", 10000);
                 RunProcessQuiet(gitExe, "config --system --add safe.directory \"*\"", 10000);
                 RunProcessQuiet(gitExe, "config --system credential.helper manager", 10000);
 
+                System.Threading.Thread.Sleep(300);
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] Git 머신 전역 설정 완료 (safe.directory '*', autocrlf, Credential Manager)");
+                Console.WriteLine(" [✔] Git 머신 전역 설정 완료 (safe.directory '*', autocrlf, Credential Manager)");
                 Console.ResetColor();
             }
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("[-] Git 머신 전역 설정 안내: " + ex.Message);
+                Console.WriteLine(" [-] Git 머신 전역 설정 안내: " + ex.Message);
                 Console.ResetColor();
             }
         }
@@ -555,7 +693,7 @@ namespace OnePunchSetup
                 if (specs.IsDomainJoined)
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine(" [Active Directory 도메인 연동 환경 감지 - 다중 사용자 모드]");
+                    Console.WriteLine(" [Active Directory 도메인 연동 환경 - 다중 사용자 모드]");
                 }
                 else
                 {
@@ -565,7 +703,6 @@ namespace OnePunchSetup
             }
             catch { }
 
-            Console.WriteLine(" * 설치 엔진: 공식 고속 무인 인스톨러 (Direct Official Silent Engine)");
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.WriteLine(" * 실습실 PC는 공용이므로 퇴실 전 반드시 GitHub에 'git push' 하세요.");
             Console.ResetColor();
@@ -682,79 +819,90 @@ namespace OnePunchSetup
             Console.WriteLine("     [원펀치 v3.0 1단계: Windows 개발 환경 및 가상화/Docker 구축 파이프라인]    ");
             Console.WriteLine("================================================================================");
             Console.ResetColor();
+            Console.WriteLine(" * 학생 및 개발자를 위해 차례대로 눈에 편안한 템포로 설치를 진행합니다.");
+            System.Threading.Thread.Sleep(800);
 
             // 1. Git for Windows
-            Console.WriteLine("\n[1단계] Git for Windows 설치 및 환경변수 등록");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\n--------------------------------------------------------------------------------");
+            Console.WriteLine(" [1/7 단계] Git for Windows 점검 및 설치");
             Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
             ExecuteGit();
             var git = DetectGit();
             PrintStepResult("Git for Windows", git.Installed, git.Version);
+            System.Threading.Thread.Sleep(700);
 
             // 2. Python 3.12
-            Console.WriteLine("\n[2단계] Python 3.12 설치 및 환경변수 등록");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\n--------------------------------------------------------------------------------");
+            Console.WriteLine(" [2/7 단계] Python 3.12 점검 및 설치");
             Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
             ExecutePython();
             var py = DetectPython();
             PrintStepResult("Python 3.12", py.Installed, py.Version);
+            System.Threading.Thread.Sleep(700);
 
             // 3. Visual Studio Code & 한국어 언어팩
-            Console.WriteLine("\n[3단계] Visual Studio Code 공식 설치 및 한국어 언어팩 구성");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\n--------------------------------------------------------------------------------");
+            Console.WriteLine(" [3/7 단계] Visual Studio Code 점검 및 한국어 환경 구성");
             Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
             ExecuteVSCode();
             var code = DetectVSCode();
             PrintStepResult("Visual Studio Code", code.Installed, code.KoreanExt ? "한국어팩 적용 완료" : "기본 설치됨");
+            System.Threading.Thread.Sleep(700);
 
             // 4. Discord
-            Console.WriteLine("\n[4단계] Discord 공식 설치");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\n--------------------------------------------------------------------------------");
+            Console.WriteLine(" [4/7 단계] Discord 점검 및 설치");
             Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
             ExecuteDiscord();
             var discord = DetectDiscord();
             PrintStepResult("Discord", discord.Installed, discord.Version);
+            System.Threading.Thread.Sleep(700);
 
-            // 5. 하드웨어 가상화 진단 (VT-x / AMD SVM)
-            Console.WriteLine("\n[5단계] CPU 하드웨어 가상화 (VT-x / AMD SVM) 진단");
+            // 5. WSL2 & Ubuntu 24.04 LTS (가상화 플랫폼 + 배포판 등록)
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\n--------------------------------------------------------------------------------");
+            Console.WriteLine(" [5/7 단계] WSL2 및 Ubuntu 24.04 LTS 가상화 환경 구축");
             Console.WriteLine("--------------------------------------------------------------------------------");
-            bool biosVirt = false;
-            try { biosVirt = IsProcessorFeaturePresent(21); } catch { }
-            if (biosVirt)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] CPU 하드웨어 가상화(VT-x / AMD SVM) 지원 확인됨");
-                Console.ResetColor();
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("[주의] CPU 하드웨어 가상화(VT-x / AMD SVM)가 BIOS에서 비활성화되어 있을 수 있습니다.");
-                Console.WriteLine("       (WSL2/Docker 사용을 위해 부팅 시 BIOS(F2/Del)에서 Virtualization을 활성화해야 합니다)");
-                Console.ResetColor();
-            }
-
-            // 6. WSL2 & Ubuntu 24.04 LTS (가상화 플랫폼 + 배포판 등록)
-            Console.WriteLine("\n[6단계] WSL2 및 Ubuntu 24.04 LTS 가상화 플랫폼 활성화");
-            Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
             ExecuteWSL();
             var wsl = DetectWSL();
             PrintStepResult("WSL2 / Ubuntu", wsl.Installed, wsl.HasUbuntu ? (wsl.DistroName + " 등록됨") : "WSL2 등록 대기 (재부팅 후 활성화)");
+            System.Threading.Thread.Sleep(700);
 
-            // 7. Docker Desktop (WSL2 백엔드로 무인 설치)
-            Console.WriteLine("\n[7단계] Docker Desktop 공식 설치 (WSL2 백엔드)");
+            // 6. Docker Desktop (WSL2 백엔드로 무인 설치)
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\n--------------------------------------------------------------------------------");
+            Console.WriteLine(" [6/7 단계] Docker Desktop 점검 및 설치 (WSL2 백엔드)");
             Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
             ExecuteDocker();
             var docker = DetectDocker();
             PrintStepResult("Docker Desktop", docker.Installed, docker.Path);
+            System.Threading.Thread.Sleep(700);
 
-            // 8. Docker-WSL2 연동 (settings.json 자동 구성)
-            Console.WriteLine("\n[8단계] Docker Desktop WSL2 연동 자동 구성");
+            // 7. Docker-WSL2 연동 및 사용자 권한 구성
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\n--------------------------------------------------------------------------------");
+            Console.WriteLine(" [7/7 단계] Docker Desktop - WSL2 연동 및 사용자 권한 구성");
             Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
             ConfigureDockerWSLIntegration();
-            var dockerWsl = DetectDockerWSLIntegration();
-            PrintStepResult("Docker-WSL2 연동", dockerWsl.Configured, dockerWsl.Details);
-
+            ConfigureDockerUsersGroup();
             RepairEnvironmentAndShortcuts();
             BroadcastEnvChange();
+            var dockerWsl = DetectDockerWSLIntegration();
+            PrintStepResult("Docker-WSL2 연동", dockerWsl.Configured, dockerWsl.Details);
+            System.Threading.Thread.Sleep(700);
 
-            // 9. 가상화 재부팅 상태 저장 및 재부팅 요청
+            // 가상화 재부팅 상태 저장 및 재부팅 요청
             SaveInstallState("post_reboot_pending");
             RegisterRunOnceResume();
             PromptPostInstallReboot();
@@ -770,21 +918,29 @@ namespace OnePunchSetup
             Console.WriteLine("================================================================================");
             Console.ResetColor();
             Console.WriteLine(" * Windows 재부팅으로 WSL2 하이퍼바이저 커널이 메모리에 활성화되었습니다.");
-            Console.WriteLine(" * 남은 WSL 리눅스 개발 도구 프로비저닝 및 Docker 권한 연동을 마무리합니다.\n");
+            Console.WriteLine(" * 남은 WSL 리눅스 개발 도구 프로비저닝 및 Docker 권한 연동을 편안한 템포로 마무리합니다.\n");
+            System.Threading.Thread.Sleep(800);
 
             // 0. 손상된 Docker 설정이 있다면 자동 정리 및 프로세스 복구
             CleanupCorruptDockerSettings();
 
             // 1. WSL 리눅스 내부 개발 환경 설정
-            Console.WriteLine("[이어하기 1/2] WSL 리눅스 개발 환경 구성 (build-essential, git, python3-venv, ~/projects)");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\n--------------------------------------------------------------------------------");
+            Console.WriteLine(" [이어하기 1/2] WSL 리눅스 개발 환경 구성 (기본 계정, 빌드 도구, Python venv)");
             Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
             ProvisionWSLLinux("");
             var wsl = DetectWSL();
             PrintStepResult("WSL 리눅스 환경", wsl.Installed && wsl.HasUbuntu, wsl.DistroName + " 개발 환경 구성 완료");
+            System.Threading.Thread.Sleep(700);
 
             // 2. Docker-WSL2 런타임 권한 연동
-            Console.WriteLine("\n[이어하기 2/2] Docker Desktop & WSL2 런타임 소켓 연동 마무리");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\n--------------------------------------------------------------------------------");
+            Console.WriteLine(" [이어하기 2/2] Docker Desktop & WSL2 런타임 소켓 연동 마무리");
             Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
             CleanupCorruptDockerSettings();
             FixWSLDockerPermission();
             var dockerWsl = DetectDockerWSLIntegration();
@@ -902,31 +1058,42 @@ namespace OnePunchSetup
 
         static void ExecuteGit()
         {
-            Console.WriteLine("\n[설치] Git for Windows 점검 및 공식 설치");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(" [*] Git for Windows 설치 여부를 확인하고 있습니다...");
+            Console.ResetColor();
+            System.Threading.Thread.Sleep(500);
 
             var detected = DetectGit();
             string gitCmdDir = @"C:\Program Files\Git\cmd";
 
             if (detected.Installed)
             {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("[-] 이미 설치됨: Git " + detected.Version + " (" + detected.Path + ")");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(" [✔] Git for Windows가 이미 정상 설치되어 있습니다. (버전: " + detected.Version + ")");
                 Console.ResetColor();
                 if (!string.IsNullOrEmpty(detected.Path)) gitCmdDir = detected.Path;
+                System.Threading.Thread.Sleep(600);
             }
             else
             {
-                Console.WriteLine("[*] 공식 Git 인스톨러 다운로드 및 무인 설치 중...");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(" [*] 공식 Git for Windows 설치 파일을 다운로드하고 있습니다...");
+                Console.ResetColor();
                 string gitVersion = "2.47.1";
                 string url = "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe";
                 string installer = Path.Combine(InstallersDir, "Git-" + gitVersion + "-64-bit.exe");
 
                 if (DownloadFileWithRetry(url, installer))
                 {
+                    System.Threading.Thread.Sleep(400);
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine(" [*] Git for Windows를 시스템에 무인 설치하고 있습니다... (잠시만 기다려주세요)");
+                    Console.ResetColor();
                     string args = "/VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS";
-                    RunProcess(installer, args, true, 180000);
+                    RunProcess(installer, args, true, 180000, "Git for Windows 설치");
+                    System.Threading.Thread.Sleep(500);
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("[+] Git for Windows 설치 완료");
+                    Console.WriteLine(" [✔] Git for Windows 설치가 완료되었습니다.");
                     Console.ResetColor();
                 }
 
@@ -944,31 +1111,42 @@ namespace OnePunchSetup
 
         static void ExecutePython()
         {
-            Console.WriteLine("\n[설치] Python 3.12 점검 및 공식 설치");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(" [*] Python 3.12 설치 여부를 확인하고 있습니다...");
+            Console.ResetColor();
+            System.Threading.Thread.Sleep(500);
 
             var detected = DetectPython();
             string targetDir = @"C:\Program Files\Python312";
 
             if (detected.Installed)
             {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("[-] 이미 설치됨: Python " + detected.Version + " (" + detected.Path + ")");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(" [✔] Python 3.12가 이미 정상 설치되어 있습니다. (버전: " + detected.Version + ")");
                 Console.ResetColor();
                 targetDir = detected.Path;
+                System.Threading.Thread.Sleep(600);
             }
             else
             {
-                Console.WriteLine("[*] 공식 Python 인스톨러 다운로드 및 무인 설치 중...");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(" [*] 공식 Python 3.12 설치 파일을 다운로드하고 있습니다...");
+                Console.ResetColor();
                 string pyVersion = "3.12.8";
                 string url = "https://www.python.org/ftp/python/" + pyVersion + "/python-" + pyVersion + "-amd64.exe";
                 string installer = Path.Combine(InstallersDir, "python-" + pyVersion + "-amd64.exe");
 
                 if (DownloadFileWithRetry(url, installer))
                 {
+                    System.Threading.Thread.Sleep(400);
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine(" [*] Python 3.12를 시스템에 무인 설치하고 있습니다... (잠시만 기다려주세요)");
+                    Console.ResetColor();
                     string args = string.Format("/quiet InstallAllUsers=1 PrependPath=1 Include_test=0 Include_pip=1 TargetDir=\"{0}\"", targetDir);
-                    RunProcess(installer, args, true, 180000);
+                    RunProcess(installer, args, true, 180000, "Python 3.12 설치");
+                    System.Threading.Thread.Sleep(500);
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("[+] Python 3.12 설치 완료");
+                    Console.WriteLine(" [✔] Python 3.12 설치가 완료되었습니다.");
                     Console.ResetColor();
                 }
 
@@ -978,6 +1156,11 @@ namespace OnePunchSetup
 
             if (Directory.Exists(targetDir))
             {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine(" [*] 시스템 PATH 및 윈도우 스토어 가짜 바로가기 방지 설정을 구성하고 있습니다...");
+                Console.ResetColor();
+                System.Threading.Thread.Sleep(400);
+
                 AddToSystemPath(targetDir);
                 string scripts = Path.Combine(targetDir, "Scripts");
                 if (Directory.Exists(scripts)) AddToSystemPath(scripts);
@@ -993,12 +1176,20 @@ namespace OnePunchSetup
                 {
                     CreateShortcut("IDLE (Python GUI)", pywExe, "\"" + idleScript + "\"", pyExe + ",0", "Python IDLE");
                 }
+
+                System.Threading.Thread.Sleep(400);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(" [✔] Python 3.12 환경 구성 및 바로가기 등록이 완료되었습니다.");
+                Console.ResetColor();
             }
         }
 
         static void ExecuteVSCode()
         {
-            Console.WriteLine("\n[설치] Visual Studio Code 점검 및 공식 설치");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(" [*] Visual Studio Code 설치 여부를 확인하고 있습니다...");
+            Console.ResetColor();
+            System.Threading.Thread.Sleep(500);
 
             var detected = DetectVSCode();
             string targetDir = @"C:\Program Files\Microsoft VS Code";
@@ -1006,24 +1197,32 @@ namespace OnePunchSetup
 
             if (detected.Installed)
             {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("[-] 이미 설치됨: VS Code (" + detected.Path + ")");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(" [✔] Visual Studio Code가 이미 설치되어 있습니다. (" + detected.Path + ")");
                 Console.ResetColor();
                 targetDir = detected.Path;
                 codeCmd = detected.CodeCmd;
+                System.Threading.Thread.Sleep(600);
             }
             else
             {
-                Console.WriteLine("[*] 공식 VS Code 인스톨러 다운로드 및 무인 설치 중...");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(" [*] 공식 Visual Studio Code 설치 파일을 다운로드하고 있습니다...");
+                Console.ResetColor();
                 string url = "https://update.code.visualstudio.com/latest/win32-x64/stable";
                 string installer = Path.Combine(InstallersDir, "VSCodeSetup-x64.exe");
 
                 if (DownloadFileWithRetry(url, installer))
                 {
+                    System.Threading.Thread.Sleep(400);
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine(" [*] Visual Studio Code를 시스템에 무인 설치하고 있습니다... (잠시만 기다려주세요)");
+                    Console.ResetColor();
                     string args = "/VERYSILENT /NORESTART /MERGETASKS=!runcode,addtopath,desktopicon,quicklaunchicon";
-                    RunProcess(installer, args, true, 180000);
+                    RunProcess(installer, args, true, 180000, "VS Code 설치");
+                    System.Threading.Thread.Sleep(500);
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("[+] VS Code 설치 완료");
+                    Console.WriteLine(" [✔] Visual Studio Code 설치가 완료되었습니다.");
                     Console.ResetColor();
                 }
 
@@ -1039,9 +1238,13 @@ namespace OnePunchSetup
             {
                 AddToSystemPath(Path.GetDirectoryName(codeCmd));
 
-                Console.WriteLine("[*] VS Code 공식 한국어 언어팩 설치 중 (다른 플러그인 제외)...");
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine(" [*] VS Code 공식 한국어 언어팩(Korean Language Pack) 단독 설치 및 검증 중...");
+                Console.ResetColor();
+                System.Threading.Thread.Sleep(400);
+
                 string koExt = "MS-CEINTL.vscode-language-pack-ko";
-                RunProcess(codeCmd, "--install-extension " + koExt + " --force", true, 60000);
+                RunProcessQuiet(codeCmd, "--install-extension " + koExt + " --force", 60000);
 
                 // 사용자 요청: 다른 플러그인은 추가하지 않고 한국어 언어팩만 유지
                 string[] extsToRemove = {
@@ -1052,12 +1255,17 @@ namespace OnePunchSetup
                 };
                 foreach (var ext in extsToRemove)
                 {
-                    RunProcess(codeCmd, "--uninstall-extension " + ext, true, 30000);
+                    RunProcessQuiet(codeCmd, "--uninstall-extension " + ext, 30000);
                 }
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] VS Code 한국어 언어팩 단독 설치 및 검증 완료");
+                Console.WriteLine(" [✔] VS Code 한국어 언어팩 단독 설치 완료");
                 Console.ResetColor();
+
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine(" [*] VS Code 실행 즉시 한글로 열리도록 로케일 환경(argv.json: ko)을 구성하고 있습니다...");
+                Console.ResetColor();
+                System.Threading.Thread.Sleep(400);
 
                 ConfigureVSCodeLocaleKo();
 
@@ -1067,35 +1275,51 @@ namespace OnePunchSetup
                     CreateShortcut("Visual Studio Code", codeExe, "--locale=ko", codeExe + ",0", "VS Code");
                     FixStartMenuVSCodeShortcut(codeExe);
                 }
+
+                System.Threading.Thread.Sleep(400);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(" [✔] VS Code 한국어 환경 구성이 완료되었습니다. (켜지자마자 한글로 시작됩니다)");
+                Console.ResetColor();
             }
         }
 
         static void ExecuteDocker()
         {
-            Console.WriteLine("\n[설치] Docker Desktop 점검 및 공식 설치");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(" [*] Docker Desktop 설치 여부를 확인하고 있습니다...");
+            Console.ResetColor();
+            System.Threading.Thread.Sleep(500);
 
             var detected = DetectDocker();
             string targetDir = @"C:\Program Files\Docker\Docker";
 
             if (detected.Installed)
             {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("[-] 이미 설치됨: Docker Desktop (" + detected.Path + ")");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(" [✔] Docker Desktop이 이미 설치되어 있습니다. (" + detected.Path + ")");
                 Console.ResetColor();
                 targetDir = detected.Path;
+                System.Threading.Thread.Sleep(600);
             }
             else
             {
-                Console.WriteLine("[*] 공식 Docker Desktop 인스톨러 다운로드 및 무인 설치 중 (WSL2 백엔드)...");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(" [*] 공식 Docker Desktop 설치 파일을 다운로드하고 있습니다...");
+                Console.ResetColor();
                 string url = "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe";
                 string installer = Path.Combine(InstallersDir, "DockerDesktopInstaller.exe");
 
                 if (DownloadFileWithRetry(url, installer))
                 {
+                    System.Threading.Thread.Sleep(400);
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine(" [*] Docker Desktop 무인 설치를 진행하고 있습니다... (수 분이 소요될 수 있습니다)");
+                    Console.ResetColor();
                     string args = "install --quiet --accept-license --backend=wsl-2";
-                    RunProcess(installer, args, true, 300000);
+                    RunProcess(installer, args, true, 300000, "Docker Desktop 설치");
+                    System.Threading.Thread.Sleep(500);
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("[+] Docker Desktop 설치 완료");
+                    Console.WriteLine(" [✔] Docker Desktop 설치가 완료되었습니다.");
                     Console.ResetColor();
                 }
 
@@ -1121,46 +1345,56 @@ namespace OnePunchSetup
 
         static void ExecuteWSL()
         {
-            Console.WriteLine("\n[설치] WSL2 & Ubuntu 24.04 LTS 점검 및 등록");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(" [*] Windows 가상화 및 하이퍼바이저 필수 기능을 점검하고 있습니다...");
+            Console.ResetColor();
+            System.Threading.Thread.Sleep(500);
 
             try
             {
-                Console.WriteLine("[*] Windows 가상화 및 하이퍼바이저 필수 기능 구성 중...");
-                RunProcess("dism.exe", "/online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart", true, 60000);
-                RunProcess("dism.exe", "/online /enable-feature /featurename:VirtualMachinePlatform /all /norestart", true, 60000);
-                RunProcess("dism.exe", "/online /enable-feature /featurename:HypervisorPlatform /all /norestart", true, 60000);
-                RunProcess("bcdedit.exe", "/set hypervisorlaunchtype auto", true, 10000);
-                RunProcess("wsl.exe", "--set-default-version 2", true, 30000);
+                RunProcessQuiet("dism.exe", "/online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart", 60000);
+                RunProcessQuiet("dism.exe", "/online /enable-feature /featurename:VirtualMachinePlatform /all /norestart", 60000);
+                RunProcessQuiet("dism.exe", "/online /enable-feature /featurename:HypervisorPlatform /all /norestart", 60000);
+                RunProcessQuiet("bcdedit.exe", "/set hypervisorlaunchtype auto", 10000);
+                RunProcessQuiet("wsl.exe", "--set-default-version 2", 30000);
             }
             catch { }
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine(" [✔] Windows 가상화 및 하이퍼바이저 필수 기능 점검 완료");
+            Console.ResetColor();
+            System.Threading.Thread.Sleep(500);
 
             var detected = DetectWSL();
             if (detected.HasUbuntu)
             {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("[-] 이미 등록됨: " + detected.DistroName);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(" [✔] Ubuntu 24.04 LTS 배포판이 이미 등록되어 있습니다. (" + detected.DistroName + ")");
                 Console.ResetColor();
+                System.Threading.Thread.Sleep(600);
             }
             else
             {
-                Console.WriteLine("[*] Ubuntu 24.04 LTS 등록 중 (wsl --install -d Ubuntu-24.04 --no-launch)...");
-                int code = RunProcess("wsl.exe", "--install -d Ubuntu-24.04 --no-launch", true, 300000);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(" [*] Ubuntu 24.04 LTS 배포판을 등록하고 있습니다... (잠시만 기다려주세요)");
+                Console.ResetColor();
+                int code = RunProcess("wsl.exe", "--install -d Ubuntu-24.04 --no-launch", true, 300000, "Ubuntu 24.04 배포판 등록");
                 if (code == 0)
                 {
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("[+] Ubuntu 24.04 배포판 등록 완료");
+                    Console.WriteLine(" [✔] Ubuntu 24.04 배포판 등록이 완료되었습니다.");
                     Console.ResetColor();
                     Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine("[안내] WSL2 Ubuntu 계정 안내:");
-                    Console.WriteLine("       * 원펀치가 기본 개발자 계정(developer / 1234) 및 무인 로그인을 자동 구성합니다.");
-                    Console.WriteLine("       * 혹시 리눅스 프롬프트에서 직접 비밀번호를 묻더라도 화면에 글자나 별표(*)가");
-                    Console.WriteLine("         보이지 않는 것은 정상이니, 원하는 비밀번호를 치신 후 [Enter]를 누르시면 됩니다.");
+                    Console.WriteLine(" [안내] WSL2 Ubuntu 계정 안내:");
+                    Console.WriteLine("        * 원펀치가 기본 개발자 계정(developer / 1234) 및 무인 로그인을 자동 구성합니다.");
+                    Console.WriteLine("        * 혹시 리눅스 프롬프트에서 직접 비밀번호를 묻더라도 화면에 글자나 별표(*)가");
+                    Console.WriteLine("          보이지 않는 것은 정상이니, 원하는 비밀번호를 치신 후 [Enter]를 누르시면 됩니다.");
                     Console.ResetColor();
                 }
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("[!] 배포판 초기 등록 완료 (가상화 기능 반영을 위해 PC 재부팅이 필요합니다)");
+                    Console.WriteLine(" [!] 배포판 초기 등록 완료 (가상화 기능 반영을 위해 PC 재부팅이 필요합니다)");
                     Console.ResetColor();
                 }
             }
@@ -1172,19 +1406,25 @@ namespace OnePunchSetup
 
         static void ExecuteDiscord()
         {
-            Console.WriteLine("\n[설치] Discord 점검 및 공식 설치");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(" [*] Discord 설치 여부를 확인하고 있습니다...");
+            Console.ResetColor();
+            System.Threading.Thread.Sleep(500);
 
             var detected = DetectDiscord();
 
             if (detected.Installed)
             {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("[-] 이미 설치됨: Discord " + detected.Version + " (" + detected.Exe + ")");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(" [✔] Discord가 이미 정상 설치되어 있습니다. (버전: " + detected.Version + ")");
                 Console.ResetColor();
+                System.Threading.Thread.Sleep(600);
             }
             else
             {
-                Console.WriteLine("[*] 공식 Discord 인스톨러 다운로드 및 무인 설치 중...");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(" [*] 공식 Discord 설치 파일을 다운로드하고 있습니다...");
+                Console.ResetColor();
                 string installer = Path.Combine(InstallersDir, "DiscordSetup.exe");
 
                 string[] mirrors = new string[]
@@ -1206,15 +1446,20 @@ namespace OnePunchSetup
 
                 if (downloaded && File.Exists(installer))
                 {
-                    RunProcess(installer, "-s", true, 180000);
+                    System.Threading.Thread.Sleep(400);
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine(" [*] Discord 무인 설치를 진행하고 있습니다... (잠시만 기다려주세요)");
+                    Console.ResetColor();
+                    RunProcess(installer, "-s", true, 180000, "Discord 설치");
+                    System.Threading.Thread.Sleep(500);
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("[+] Discord 설치 완료");
+                    Console.WriteLine(" [✔] Discord 설치가 완료되었습니다.");
                     Console.ResetColor();
                 }
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("[-] Discord 다운로드 실패로 설치를 건너뜁니다.");
+                    Console.WriteLine(" [-] Discord 다운로드에 실패하여 설치를 건너뜁니다.");
                     Console.ResetColor();
                 }
             }
@@ -2620,7 +2865,7 @@ namespace OnePunchSetup
             catch { }
         }
 
-        static int RunProcess(string fileName, string args, bool wait, int timeoutMs = 120000)
+        static int RunProcess(string fileName, string args, bool wait, int timeoutMs = 120000, string friendlyTaskName = "")
         {
             try
             {
@@ -2632,7 +2877,8 @@ namespace OnePunchSetup
 
                 ProcessStartInfo psi = new ProcessStartInfo(fileName, args)
                 {
-                    UseShellExecute = false
+                    UseShellExecute = false,
+                    CreateNoWindow = true
                 };
                 var p = Process.Start(psi);
                 if (wait && p != null)
@@ -2651,12 +2897,13 @@ namespace OnePunchSetup
                             Console.ResetColor();
                             return -1;
                         }
-                        if (elapsed % 12000 == 0)
+                        if (elapsed % 6000 == 0)
                         {
-                            Console.Write(string.Format("\r[*] 작업 진행 중... ({0}초 경과)   ", elapsed / 1000));
+                            string taskDesc = !string.IsNullOrEmpty(friendlyTaskName) ? friendlyTaskName : Path.GetFileName(fileName);
+                            Console.Write(string.Format("\r [*] {0} 작업이 백그라운드에서 진행 중입니다... ({1}초 경과)   ", taskDesc, elapsed / 1000));
                         }
                     }
-                    if (elapsed >= 12000) Console.WriteLine();
+                    if (elapsed >= 6000) Console.WriteLine();
                     return p.ExitCode;
                 }
             }
@@ -2745,7 +2992,10 @@ namespace OnePunchSetup
 
             // 6. WSL2 가상머신 최적화 (.wslconfig)
             bool wslConfigExists = File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".wslconfig"));
-            PrintStatusRow("WSL2 하드웨어 튜닝", wslConfigExists ? "최적화 완료 (24GB RAM / 24 vCPU / AutoReclaim)" : "기본값 (.wslconfig 미생성)", wslConfigExists);
+            ulong wslRam = specs.RamGb >= 32 ? 24 : (specs.RamGb * 3 / 4);
+            if (wslRam < 4) wslRam = 4;
+            int wslCores = specs.Cores > 0 ? specs.Cores : Environment.ProcessorCount;
+            PrintStatusRow("WSL2 하드웨어 튜닝", wslConfigExists ? string.Format("최적화 완료 ({0}GB RAM / {1} vCPU / AutoReclaim)", wslRam, wslCores) : "기본값 (.wslconfig 미생성)", wslConfigExists);
 
             // 7. Discord
             var discord = DetectDiscord();

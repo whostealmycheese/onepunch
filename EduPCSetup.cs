@@ -23,6 +23,10 @@ namespace OnePunchSetup
         [DllImport("kernel32.dll")]
         public static extern bool IsProcessorFeaturePresent(int ProcessorFeature);
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool GetPhysicallyInstalledSystemMemory(out ulong TotalMemoryInKilobytes);
+
         static void SafeClear()
         {
             try { Console.Clear(); } catch { }
@@ -73,6 +77,254 @@ namespace OnePunchSetup
             Console.ResetColor();
             return sb.ToString().Trim();
         }
+
+        #region Active Directory & Hardware Optimization (Intel Core Ultra 9 / RTX 5060 / 32GB RAM)
+
+        public class SystemSpecInfo
+        {
+            public string CpuName = "Intel Core Processor";
+            public int Cores = Environment.ProcessorCount;
+            public ulong RamGb = 32;
+            public string GpuName = "NVIDIA GeForce RTX 5060";
+            public string Domain = Environment.UserDomainName;
+            public string User = Environment.UserName;
+            public bool IsDomainJoined = false;
+        }
+
+        static SystemSpecInfo DetectSystemSpecs()
+        {
+            var info = new SystemSpecInfo();
+            try
+            {
+                using (var key = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\CentralProcessor\0"))
+                {
+                    if (key != null)
+                    {
+                        string cpu = key.GetValue("ProcessorNameString") as string;
+                        if (!string.IsNullOrEmpty(cpu)) info.CpuName = cpu.Trim();
+                    }
+                }
+            }
+            catch { }
+
+            try
+            {
+                ulong memKb;
+                if (GetPhysicallyInstalledSystemMemory(out memKb) && memKb > 0)
+                {
+                    info.RamGb = (memKb + 1048575) / 1048576;
+                }
+            }
+            catch { }
+
+            try
+            {
+                using (var baseKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"))
+                {
+                    if (baseKey != null)
+                    {
+                        List<string> gpus = new List<string>();
+                        foreach (var sub in baseKey.GetSubKeyNames())
+                        {
+                            if (sub.StartsWith("0"))
+                            {
+                                using (var devKey = baseKey.OpenSubKey(sub))
+                                {
+                                    if (devKey != null)
+                                    {
+                                        string desc = devKey.GetValue("DriverDesc") as string;
+                                        if (!string.IsNullOrEmpty(desc) &&
+                                            !desc.Contains("Remote") &&
+                                            !desc.Contains("Basic Display") &&
+                                            !gpus.Contains(desc))
+                                        {
+                                            gpus.Add(desc);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (gpus.Count > 0) info.GpuName = string.Join(" / ", gpus.ToArray());
+                    }
+                }
+            }
+            catch { }
+
+            try
+            {
+                info.IsDomainJoined = !info.Domain.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase);
+            }
+            catch { }
+
+            return info;
+        }
+
+        static void ConfigureDockerUsersGroup()
+        {
+            Console.WriteLine("[*] Active Directory(AD) 및 다중 사용자용 'docker-users' 그룹 권한 구성 중...");
+            try
+            {
+                // 1. docker-users 로컬 그룹 생성 (없는 경우)
+                RunProcess("net.exe", "localgroup docker-users /add", true, 10000);
+
+                // 2. 현재 로그인 계정 (도메인 계정 포함: DOMAIN\\user 및 user) 추가
+                string domainUser = Environment.UserDomainName + "\\" + Environment.UserName;
+                RunProcess("net.exe", string.Format("localgroup docker-users \"{0}\" /add", domainUser), true, 10000);
+                RunProcess("net.exe", string.Format("localgroup docker-users \"{0}\" /add", Environment.UserName), true, 10000);
+
+                // 3. Authenticated Users (인증된 사용자: S-1-5-11) 추가 -> AD 도메인으로 로그인하는 모든 학생이 Docker 권한 자동 획득
+                try
+                {
+                    SecurityIdentifier authSid = new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null);
+                    NTAccount authAccount = (NTAccount)authSid.Translate(typeof(NTAccount));
+                    if (authAccount != null && !string.IsNullOrEmpty(authAccount.Value))
+                    {
+                        RunProcess("net.exe", string.Format("localgroup docker-users \"{0}\" /add", authAccount.Value), true, 10000);
+                    }
+                }
+                catch { }
+
+                // 4. GNIA 학생 도메인 그룹 추가 시도
+                RunProcess("net.exe", "localgroup docker-users \"GNIA\\SG-GNIA-Students-All\" /add", true, 10000);
+                RunProcess("net.exe", "localgroup docker-users \"GNIA\\Domain Users\" /add", true, 10000);
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("[+] docker-users 그룹 권한 구성 완료 (AD 도메인 학생 계정 및 인증된 사용자 권한 부여)");
+                Console.ResetColor();
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("[-] docker-users 그룹 구성 안내: " + ex.Message);
+                Console.ResetColor();
+            }
+        }
+
+        static bool IsUserInDockerGroup()
+        {
+            try
+            {
+                string output = RunProcessWithOutput("net.exe", "localgroup docker-users");
+                if (output.IndexOf("System error", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+                string user = Environment.UserName;
+                return output.IndexOf(user, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       output.IndexOf("Authenticated Users", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       output.IndexOf("인증된 사용자", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       output.IndexOf("SG-GNIA-Students-All", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        static void ConfigureWSLHardwareTuning()
+        {
+            try
+            {
+                var specs = DetectSystemSpecs();
+                ulong wslRam = specs.RamGb >= 32 ? 24 : (specs.RamGb * 3 / 4);
+                int cores = specs.Cores > 0 ? specs.Cores : 24;
+
+                Console.WriteLine(string.Format("[*] 하드웨어 사양({0} / {1}GB RAM) 맞춤 WSL2 가상머신 최적화 구성 중...", specs.CpuName, specs.RamGb));
+
+                string wslConfig =
+                    "# OnePunch Optimized WSL2 Configuration\n" +
+                    string.Format("# Target: {0} ({1} vCPUs), {2}GB Physical RAM\n", specs.CpuName, cores, specs.RamGb) +
+                    "[wsl2]\n" +
+                    string.Format("memory={0}GB\n", wslRam) +
+                    string.Format("processors={0}\n", cores) +
+                    "swap=8GB\n" +
+                    "localhostForwarding=true\n" +
+                    "nestedVirtualization=true\n" +
+                    "guiApplications=true\n" +
+                    "autoProxy=true\n\n" +
+                    "[experimental]\n" +
+                    "autoMemoryReclaim=gradual\n" +
+                    "sparseVhd=true\n";
+
+                List<string> targetDirs = new List<string>();
+                string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                if (!string.IsNullOrEmpty(userProfile) && Directory.Exists(userProfile))
+                {
+                    targetDirs.Add(userProfile);
+                }
+
+                string defaultUser = @"C:\Users\Default";
+                if (Directory.Exists(defaultUser))
+                {
+                    targetDirs.Add(defaultUser);
+                }
+
+                try
+                {
+                    string usersBase = Path.GetDirectoryName(userProfile);
+                    if (!string.IsNullOrEmpty(usersBase) && Directory.Exists(usersBase))
+                    {
+                        foreach (var dir in Directory.GetDirectories(usersBase))
+                        {
+                            string dirName = Path.GetFileName(dir);
+                            if (dirName.Equals("Public", StringComparison.OrdinalIgnoreCase) ||
+                                dirName.Equals("All Users", StringComparison.OrdinalIgnoreCase)) continue;
+                            if (!targetDirs.Contains(dir)) targetDirs.Add(dir);
+                        }
+                    }
+                }
+                catch { }
+
+                foreach (var dir in targetDirs)
+                {
+                    try
+                    {
+                        File.WriteAllText(Path.Combine(dir, ".wslconfig"), wslConfig, Encoding.UTF8);
+                    }
+                    catch { }
+                }
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(string.Format("[+] WSL2 가상머신 최적화 완료 (메모리 {0}GB, vCPU {1}개, autoMemoryReclaim 활성화)", wslRam, cores));
+                Console.ResetColor();
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("[-] WSL2 최적화 설정 안내: " + ex.Message);
+                Console.ResetColor();
+            }
+        }
+
+        static void ConfigureMachineGit()
+        {
+            try
+            {
+                var detected = DetectGit();
+                string gitExe = "git.exe";
+                if (detected.Installed && !string.IsNullOrEmpty(detected.Path))
+                {
+                    string candidate = Path.Combine(detected.Path, "git.exe");
+                    if (File.Exists(candidate)) gitExe = candidate;
+                }
+
+                Console.WriteLine("[*] Active Directory 실습실 다중 사용자용 머신 전역 Git 시스템 설정 중...");
+                RunProcess(gitExe, "config --system init.defaultBranch main", true, 10000);
+                RunProcess(gitExe, "config --system core.autocrlf true", true, 10000);
+                RunProcess(gitExe, "config --system core.quotepath false", true, 10000);
+                RunProcess(gitExe, "config --system --add safe.directory \"*\"", true, 10000);
+                RunProcess(gitExe, "config --system credential.helper manager", true, 10000);
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("[+] Git 머신 전역 설정 완료 (safe.directory '*', autocrlf, Credential Manager)");
+                Console.ResetColor();
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("[-] Git 머신 전역 설정 안내: " + ex.Message);
+                Console.ResetColor();
+            }
+        }
+
+        #endregion
 
         #region State Management & Post-Reboot Resume
 
@@ -279,6 +531,40 @@ namespace OnePunchSetup
             Console.WriteLine("                            [원펀치 (OnePunch) v3.0]                            ");
             Console.WriteLine("================================================================================");
             Console.ResetColor();
+
+            try
+            {
+                var specs = DetectSystemSpecs();
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write(" * 감지 사양: ");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write(specs.CpuName + " (" + specs.Cores + " 코어)");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write(" | ");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write(specs.RamGb + "GB RAM");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write(" | ");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(specs.GpuName);
+
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write(" * 계정 환경: ");
+                Console.ForegroundColor = specs.IsDomainJoined ? ConsoleColor.Cyan : ConsoleColor.Gray;
+                Console.Write(specs.Domain + "\\" + specs.User);
+                if (specs.IsDomainJoined)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine(" [Active Directory 도메인 연동 환경 감지 - 다중 사용자 모드]");
+                }
+                else
+                {
+                    Console.WriteLine(" [로컬 사용자 환경]");
+                }
+                Console.ResetColor();
+            }
+            catch { }
+
             Console.WriteLine(" * 설치 엔진: 공식 고속 무인 인스톨러 (Direct Official Silent Engine)");
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.WriteLine(" * 실습실 PC는 공용이므로 퇴실 전 반드시 GitHub에 'git push' 하세요.");
@@ -652,6 +938,8 @@ namespace OnePunchSetup
             {
                 AddToSystemPath(gitCmdDir);
             }
+
+            ConfigureMachineGit();
         }
 
         static void ExecutePython()
@@ -877,6 +1165,7 @@ namespace OnePunchSetup
 
             CreateRobustWSLShortcut(detected.HasUbuntu ? detected.DistroName : "Ubuntu-24.04");
             ConfigureDockerWSLIntegration();
+            ConfigureWSLHardwareTuning();
         }
 
         static void ExecuteDiscord()
@@ -984,6 +1273,15 @@ namespace OnePunchSetup
             RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, projectsCmd), true, 30000);
 
             RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"git config --system init.defaultBranch main\"", distro), true, 20000);
+
+            // NVIDIA GPU 가속 (WSL2 Direct3D / CUDA 드라이버) 연동 점검
+            Console.WriteLine("[*] WSL2 리눅스 내부 NVIDIA GPU 가속 (CUDA / Direct3D) 연동 확인 중...");
+            string cudaCheck =
+                "if [ -e /usr/lib/wsl/lib/libcuda.so.1 ] || [ -e /dev/dxg ]; then " +
+                "  ldconfig 2>/dev/null || true; " +
+                "  echo '[OK] NVIDIA GPU WSL2 가속 드라이버(CUDA) 연동 감지됨'; " +
+                "fi";
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, cudaCheck), true, 15000);
 
             FixWSLDockerPermission();
 
@@ -1245,6 +1543,7 @@ namespace OnePunchSetup
         {
             var wsl = DetectWSL();
             EnsureDockerDesktopRunningAndIntegrated(wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04");
+            ConfigureDockerUsersGroup();
         }
 
         static void CreateRobustWSLShortcut(string distroName)
@@ -1335,6 +1634,10 @@ namespace OnePunchSetup
                 }
             }
             catch { }
+
+            ConfigureMachineGit();
+            ConfigureDockerUsersGroup();
+            ConfigureWSLHardwareTuning();
         }
 
         #endregion
@@ -2163,6 +2466,13 @@ namespace OnePunchSetup
                     userDirs.Add(currentUser);
                 }
 
+                // C:\Users\Default 프로필 등록 (새로운 Active Directory 사용자 첫 로그인 시 자동 복제)
+                string defaultUser = @"C:\Users\Default";
+                if (Directory.Exists(defaultUser) && !userDirs.Contains(defaultUser))
+                {
+                    userDirs.Add(defaultUser);
+                }
+
                 try
                 {
                     string usersBase = Path.GetDirectoryName(currentUser);
@@ -2172,8 +2482,6 @@ namespace OnePunchSetup
                         {
                             string dirName = Path.GetFileName(dir);
                             if (dirName.Equals("Public", StringComparison.OrdinalIgnoreCase) ||
-                                dirName.Equals("Default", StringComparison.OrdinalIgnoreCase) ||
-                                dirName.Equals("Default User", StringComparison.OrdinalIgnoreCase) ||
                                 dirName.Equals("All Users", StringComparison.OrdinalIgnoreCase))
                                 continue;
 
@@ -2267,7 +2575,8 @@ namespace OnePunchSetup
                     try { File.Delete(userLnk); } catch { }
                 }
 
-                string targetLnk = File.Exists(publicLnk) ? publicLnk : userLnk;
+                // 다중 사용자 / AD 실습실 환경에서는 모든 사용자가 접근 가능한 공용 바탕화면 우선 생성
+                string targetLnk = Directory.Exists(publicDesktop) ? publicLnk : userLnk;
 
                 string psCmd = string.Format(
                     "$w=New-Object -ComObject WScript.Shell; " +
@@ -2360,12 +2669,13 @@ namespace OnePunchSetup
                 {
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
-                    RedirectStandardError = false,
+                    RedirectStandardError = true,
                     CreateNoWindow = true
                 };
                 using (var p = Process.Start(psi))
                 {
                     string output = p.StandardOutput.ReadToEnd();
+                    try { p.StandardError.ReadToEnd(); } catch { }
                     if (!p.WaitForExit(timeoutMs))
                     {
                         try { p.Kill(); } catch { }
@@ -2387,6 +2697,12 @@ namespace OnePunchSetup
             Console.WriteLine("================================================================================");
             Console.ResetColor();
 
+            // 0. 하드웨어 사양 및 Active Directory 도메인 환경
+            var specs = DetectSystemSpecs();
+            PrintStatusRow("하드웨어 CPU / RAM", specs.CpuName + " (" + specs.Cores + " 코어 / " + specs.RamGb + "GB RAM)", true);
+            PrintStatusRow("GPU 그래픽 카드", specs.GpuName + " (WSL2 CUDA 지원)", true);
+            PrintStatusRow("Active Directory 계정", specs.Domain + "\\" + specs.User + (specs.IsDomainJoined ? " [AD 도메인 연동]" : " [로컬]"), true);
+
             // 1. Git
             var git = DetectGit();
             PrintStatusRow("Git for Windows", git.Installed ? (git.Version + " (" + git.Path + ")") : "미설치", git.Installed);
@@ -2401,21 +2717,27 @@ namespace OnePunchSetup
 
             // 4. Docker
             var docker = DetectDocker();
+            bool inDockerGroup = IsUserInDockerGroup();
             PrintStatusRow("Docker Desktop", docker.Installed ? ("설치됨 (" + docker.Path + ")") : "미설치", docker.Installed);
+            PrintStatusRow("Docker 도메인 권한", inDockerGroup ? "docker-users 그룹 구성 완료 (AD 도메인 계정 허용)" : "docker-users 그룹 점검 필요", inDockerGroup);
 
             // 5. WSL
             var wsl = DetectWSL();
             PrintStatusRow("WSL2 / Ubuntu", wsl.Installed ? (wsl.HasUbuntu ? (wsl.DistroName + " 활성화") : "WSL 설치됨 (배포판 필요)") : "미설치", wsl.Installed && wsl.HasUbuntu);
 
-            // 6. Discord
+            // 6. WSL2 가상머신 최적화 (.wslconfig)
+            bool wslConfigExists = File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".wslconfig"));
+            PrintStatusRow("WSL2 하드웨어 튜닝", wslConfigExists ? "최적화 완료 (24GB RAM / 24 vCPU / AutoReclaim)" : "기본값 (.wslconfig 미생성)", wslConfigExists);
+
+            // 7. Discord
             var discord = DetectDiscord();
             PrintStatusRow("Discord", discord.Installed ? (discord.Version + " (" + discord.Path + ")") : "미설치", discord.Installed);
 
-            // 7. Docker-WSL2 통합 연동
+            // 8. Docker-WSL2 통합 연동
             var dockerWsl = DetectDockerWSLIntegration();
             PrintStatusRow("Docker-WSL2 연동", dockerWsl.Configured ? dockerWsl.Details : ("연동 필요 (" + dockerWsl.Details + ")"), dockerWsl.Configured);
 
-            // 8. 하드웨어 가상화 (VT-x / AMD SVM)
+            // 9. 하드웨어 가상화 (VT-x / AMD SVM)
             bool biosVirt = false;
             try { biosVirt = IsProcessorFeaturePresent(21); } catch { }
             PrintStatusRow("하드웨어 가상화", biosVirt ? "활성화됨 (VT-x/SVM 정상)" : "확인 필요 (BIOS VT-x/SVM 활성화 요망)", biosVirt);

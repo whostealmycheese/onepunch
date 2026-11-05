@@ -579,7 +579,7 @@ namespace OnePunchSetup
             Console.ResetColor();
             Console.WriteLine(" [2] Git for Windows");
             Console.WriteLine(" [3] Python 3.12");
-            Console.WriteLine(" [4] Visual Studio Code (한국어 & 필수 확장팩)");
+            Console.WriteLine(" [4] Visual Studio Code (한국어 언어팩 단독 구성)");
             Console.WriteLine(" [5] Docker Desktop");
             Console.WriteLine(" [6] WSL2 & Ubuntu 24.04 LTS");
             Console.WriteLine(" [7] Discord");
@@ -697,12 +697,12 @@ namespace OnePunchSetup
             var py = DetectPython();
             PrintStepResult("Python 3.12", py.Installed, py.Version);
 
-            // 3. Visual Studio Code & 필수 확장팩
-            Console.WriteLine("\n[3단계] Visual Studio Code 및 필수 확장팩 구성");
+            // 3. Visual Studio Code & 한국어 언어팩
+            Console.WriteLine("\n[3단계] Visual Studio Code 공식 설치 및 한국어 언어팩 구성");
             Console.WriteLine("--------------------------------------------------------------------------------");
             ExecuteVSCode();
             var code = DetectVSCode();
-            PrintStepResult("Visual Studio Code", code.Installed, code.KoreanExt ? "한국어팩 적용됨" : "기본 설치됨");
+            PrintStepResult("Visual Studio Code", code.Installed, code.KoreanExt ? "한국어팩 적용 완료" : "기본 설치됨");
 
             // 4. Discord
             Console.WriteLine("\n[4단계] Discord 공식 설치");
@@ -1039,22 +1039,24 @@ namespace OnePunchSetup
             {
                 AddToSystemPath(Path.GetDirectoryName(codeCmd));
 
-                Console.WriteLine("[*] VS Code 필수 확장팩 및 한국어 언어팩 설치 중...");
-                string[] extensions = {
-                    "MS-CEINTL.vscode-language-pack-ko",
-                    "ms-vscode-remote.remote-wsl",
-                    "ms-python.python",
-                    "eamodio.gitlens",
-                    "github.vscode-pull-request-github"
-                };
+                Console.WriteLine("[*] VS Code 공식 한국어 언어팩 설치 중 (다른 플러그인 제외)...");
+                string koExt = "MS-CEINTL.vscode-language-pack-ko";
+                RunProcess(codeCmd, "--install-extension " + koExt + " --force", true, 60000);
 
-                foreach (var ext in extensions)
+                // 사용자 요청: 다른 플러그인은 추가하지 않고 한국어 언어팩만 유지
+                string[] extsToRemove = {
+                    "eamodio.gitlens",
+                    "github.vscode-pull-request-github",
+                    "ms-vscode-remote.remote-wsl",
+                    "ms-python.python"
+                };
+                foreach (var ext in extsToRemove)
                 {
-                    Console.WriteLine("[*] 확장팩 설치/동기화: " + ext);
-                    RunProcess(codeCmd, "--install-extension " + ext + " --force", true, 60000);
+                    RunProcess(codeCmd, "--uninstall-extension " + ext, true, 30000);
                 }
+
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] VS Code 필수 확장팩 설치 및 검증 완료");
+                Console.WriteLine("[+] VS Code 한국어 언어팩 단독 설치 및 검증 완료");
                 Console.ResetColor();
 
                 ConfigureVSCodeLocaleKo();
@@ -2423,34 +2425,41 @@ namespace OnePunchSetup
         {
             try
             {
+                // VS Code의 JSON 파서는 UTF-8 BOM(0xEF 0xBB 0xBF)이 있으면 "Unexpected token '﻿', ... is not valid JSON" 구문 오류를 발생시킵니다.
+                // 따라서 반드시 BOM이 없는 UTF-8(new UTF8Encoding(false))로 작성해야 합니다.
+                var utf8NoBom = new UTF8Encoding(false);
+                string dir = Path.GetDirectoryName(filePath);
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+                string cleanJson = "{\n\t\"locale\": \"ko\"\n}\n";
+
                 if (File.Exists(filePath))
                 {
-                    string text = File.ReadAllText(filePath, Encoding.UTF8);
-                    if (text.IndexOf("\"locale\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                    try
                     {
-                        text = System.Text.RegularExpressions.Regex.Replace(
-                            text,
-                            "\"locale\"\\s*:\\s*\"[^\"]*\"",
-                            "\"locale\": \"ko\"");
-                    }
-                    else
-                    {
-                        int brace = text.IndexOf('{');
-                        if (brace >= 0)
+                        string text = File.ReadAllText(filePath, Encoding.UTF8).Trim();
+                        if (text.StartsWith("\uFEFF")) text = text.Substring(1).Trim();
+
+                        if (text.IndexOf("\"locale\"", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
-                            text = text.Insert(brace + 1, "\n\t\"locale\": \"ko\",");
+                            cleanJson = System.Text.RegularExpressions.Regex.Replace(
+                                text,
+                                "\"locale\"\\s*:\\s*\"[^\"]*\"",
+                                "\"locale\": \"ko\"");
                         }
-                        else
+                        else if (text.Contains("{") && text.Contains("}"))
                         {
-                            text = "{\n\t\"locale\": \"ko\"\n}\n";
+                            int brace = text.IndexOf('{');
+                            cleanJson = text.Insert(brace + 1, "\n\t\"locale\": \"ko\",");
                         }
                     }
-                    File.WriteAllText(filePath, text, Encoding.UTF8);
+                    catch
+                    {
+                        cleanJson = "{\n\t\"locale\": \"ko\"\n}\n";
+                    }
                 }
-                else
-                {
-                    File.WriteAllText(filePath, "{\n\t\"locale\": \"ko\"\n}\n", Encoding.UTF8);
-                }
+
+                File.WriteAllText(filePath, cleanJson, utf8NoBom);
             }
             catch { }
         }
@@ -2459,6 +2468,7 @@ namespace OnePunchSetup
         {
             try
             {
+                var utf8NoBom = new UTF8Encoding(false);
                 List<string> userDirs = new List<string>();
                 string currentUser = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                 if (!string.IsNullOrEmpty(currentUser) && Directory.Exists(currentUser))
@@ -2495,26 +2505,28 @@ namespace OnePunchSetup
                 {
                     try
                     {
-                        // 1. <user>\.vscode\argv.json
+                        // 1. <user>\.vscode\argv.json (VS Code 공식 런타임 인자 파일 - UTF-8 No-BOM 필수)
                         string dotVscode = Path.Combine(uDir, ".vscode");
                         if (!Directory.Exists(dotVscode)) Directory.CreateDirectory(dotVscode);
                         SetLocaleInArgvJson(Path.Combine(dotVscode, "argv.json"));
 
-                        // 2. <user>\AppData\Roaming\Code\argv.json
+                        // 2. 비표준 AppData 경로의 argv.json 정리 (충돌 및 구문 오류 방지)
                         string appDataCode = Path.Combine(uDir, @"AppData\Roaming\Code");
-                        if (!Directory.Exists(appDataCode)) Directory.CreateDirectory(appDataCode);
-                        SetLocaleInArgvJson(Path.Combine(appDataCode, "argv.json"));
+                        string rogue1 = Path.Combine(appDataCode, "argv.json");
+                        if (File.Exists(rogue1)) { try { File.Delete(rogue1); } catch { } }
 
-                        // 3. <user>\AppData\Roaming\Code\User\argv.json & locale.json
                         string appDataCodeUser = Path.Combine(appDataCode, "User");
+                        string rogue2 = Path.Combine(appDataCodeUser, "argv.json");
+                        if (File.Exists(rogue2)) { try { File.Delete(rogue2); } catch { } }
+
+                        // 3. <user>\AppData\Roaming\Code\User\locale.json (구버전 호환, UTF-8 No-BOM)
                         if (!Directory.Exists(appDataCodeUser)) Directory.CreateDirectory(appDataCodeUser);
-                        SetLocaleInArgvJson(Path.Combine(appDataCodeUser, "argv.json"));
-                        File.WriteAllText(Path.Combine(appDataCodeUser, "locale.json"), "{\n  \"locale\": \"ko\"\n}\n", Encoding.UTF8);
+                        File.WriteAllText(Path.Combine(appDataCodeUser, "locale.json"), "{\n  \"locale\": \"ko\"\n}\n", utf8NoBom);
                     }
                     catch { }
                 }
 
-                Console.WriteLine("[+] VS Code 한국어 언어팩 로케일 영구 적용 완료 (모든 사용자 계정 .vscode/argv.json -> ko)");
+                Console.WriteLine("[+] VS Code 한국어 언어팩 로케일 영구 적용 완료 (UTF-8 No-BOM .vscode/argv.json -> ko)");
             }
             catch { }
         }

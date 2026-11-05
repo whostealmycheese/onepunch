@@ -44,9 +44,9 @@
 * 리눅스 설치 직후 검은 콘솔창에 화면에 글자나 별표(*)가 보이지 않아 학생들이 패닉에 빠지는 UNIX 비밀번호 입력 단계를 자동화하였습니다.
 * 기본 사용자 계정(`developer / 1234`) 및 패스워드 없는 `sudo` 권한을 무인 구성하여 즉시 개발에 집중할 수 있습니다.
 
-### 5. 🇰🇷 VS Code 켜자마자 100% 한국어 보장
-* 인스톨러 단축아이콘 인자 강제 패치(`--locale=ko`), 모든 사용자 프로필 `argv.json`, 시작 메뉴 바로가기까지 4중 안전망을 통해 VS Code가 첫 실행부터 한국어로 열립니다.
-* 필수 확장팩 5종(`한국어팩`, `WSL Remote`, `Python`, `GitLens`, `GitHub Pull Requests`) 자동 설치.
+### 5. 🇰🇷 VS Code 켜자마자 100% 한국어 보장 (불필요한 플러그인 제외)
+* 불필요한 외부 플러그인을 배제하고 **공식 한국어 언어팩(`MS-CEINTL.vscode-language-pack-ko`)만 단독 구성**합니다.
+* VS Code 구문 오류의 주원인이었던 UTF-8 BOM 문제를 완벽 해결(No-BOM UTF-8 적용)하고, `.vscode/argv.json` 로케일 및 단축아이콘 인자(`--locale=ko`)로 첫 실행부터 오류 창 없이 100% 한국어로 열립니다.
 
 ---
 
@@ -64,7 +64,7 @@
  [1] 전체 설치 (1단계 완료 후 가상화 재부팅 & 자동 이어하기) [추천]
  [2] Git for Windows
  [3] Python 3.12
- [4] Visual Studio Code (한국어 & 필수 확장팩)
+ [4] Visual Studio Code (한국어 언어팩 단독 구성)
  [5] Docker Desktop
  [6] WSL2 & Ubuntu 24.04 LTS
  [7] Discord

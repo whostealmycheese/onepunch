@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>원펀치 (OnePunch) - 코딩 교육생을 위한 원클릭 개발 환경 세팅기</title>
-  <meta name="description" content="WSL2 Ubuntu 24.04, Docker Desktop, Python 3.12, VS Code를 단 한 번의 클릭으로 무인 설치하는 초경량 세팅 도구">
+  <meta name="description" content="WSL2 Ubuntu 24.04, Docker Desktop, Python 3.12, VS Code 한국어 언어팩을 단 한 번의 클릭으로 무인 설치하는 초경량 세팅 도구">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="icon" type="image/png" href="icon.png">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,40 +14,40 @@
   <style>
     body { font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
     .gradient-text {
-      background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 50%, #EC4899 100%);
+      background: linear-gradient(135deg, #1D4ED8 0%, #4F46E5 50%, #7C3AED 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
     .hero-glow {
-      background: radial-gradient(circle at 50% 20%, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 70%);
+      background: radial-gradient(circle at 50% 15%, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0.05) 50%, transparent 75%);
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-blue-600 selection:text-white">
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col selection:bg-blue-600 selection:text-white antialiased">
 
   <!-- Header / Navigation -->
-  <header class="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800/80">
+  <header class="sticky top-0 z-50 backdrop-blur-md bg-white/85 border-b border-slate-200/80 shadow-sm">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-xl shadow-lg shadow-blue-500/20">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-xl shadow-md shadow-blue-500/20 text-white">
           🥊
         </div>
         <div>
-          <span class="font-bold text-lg tracking-tight text-white">원펀치 <span class="text-blue-400 font-semibold text-sm">OnePunch</span></span>
-          <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-medium border border-blue-500/30">v3.0</span>
+          <span class="font-bold text-lg tracking-tight text-slate-900">원펀치 <span class="text-blue-600 font-semibold text-sm">OnePunch</span></span>
+          <span class="ml-2 text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200">v3.0</span>
         </div>
       </div>
-      <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
-        <a href="#features" class="hover:text-blue-400 transition-colors">주요 기능</a>
-        <a href="#guide" class="hover:text-blue-400 transition-colors">사용 방법</a>
-        <a href="#faq" class="hover:text-blue-400 transition-colors">자주 묻는 질문</a>
-        <a href="#feedback" class="hover:text-blue-400 transition-colors flex items-center gap-1.5">
+      <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
+        <a href="#features" class="hover:text-blue-600 transition-colors">주요 기능</a>
+        <a href="#guide" class="hover:text-blue-600 transition-colors">사용 방법</a>
+        <a href="#faq" class="hover:text-blue-600 transition-colors">자주 묻는 질문</a>
+        <a href="#feedback" class="hover:text-blue-600 transition-colors flex items-center gap-1.5">
           <span>버그 제보 (디스코드)</span>
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
         </a>
       </nav>
       <div class="flex items-center gap-3">
-        <a href="downloads/OnePunch.exe" download="OnePunch.exe" class="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold shadow-lg shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+        <a href="downloads/OnePunch.exe" download="OnePunch.exe" class="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-md shadow-blue-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
           <i class="fa-solid fa-download"></i>
           <span>다운로드 (50KB)</span>
         </a>
@@ -56,67 +56,67 @@
   </header>
 
   <!-- Hero Section -->
-  <section class="relative hero-glow pt-16 pb-20 md:pt-24 md:pb-32 overflow-hidden border-b border-slate-900">
+  <section class="relative hero-glow pt-16 pb-20 md:pt-24 md:pb-32 overflow-hidden border-b border-slate-200">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
       
       <!-- Top Pill -->
-      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-300 mb-8 shadow-inner">
-        <span class="flex h-2 w-2 rounded-full bg-blue-500"></span>
-        <span>Windows 10 / 11 64-bit 지원</span>
-        <span class="text-slate-600">|</span>
-        <span class="text-blue-400 font-medium">50KB 단일 실행 파일 (외부 의존성 제로)</span>
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-slate-200/90 text-xs text-slate-600 mb-8 shadow-sm">
+        <span class="flex h-2 w-2 rounded-full bg-blue-600"></span>
+        <span class="font-medium text-slate-800">Windows 10 / 11 64-bit 지원</span>
+        <span class="text-slate-300">|</span>
+        <span class="text-blue-600 font-semibold">50KB 단일 실행기 (외부 의존성 제로)</span>
       </div>
 
       <!-- Main Headline -->
-      <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white mb-6 leading-tight">
+      <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-6 leading-tight">
         코딩 교육생 동기들을 위한,<br class="hidden sm:inline" />
         개발 환경 세팅 <span class="gradient-text">원펀치</span>로 5분 컷!
       </h1>
 
-      <p class="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-        수업 따라가기도 바쁜데 Git, 파이썬, WSL, 도커 환경변수 삽질은 이제 그만!<br class="hidden sm:inline"/>
-        교육생 입장에서 직접 겪었던 설치 에러들을 <strong class="text-slate-200">단 한 번의 클릭</strong>으로 깔끔하게 해결해 줍니다.
+      <p class="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+        수업 따라가기도 바쁜데 Git, 파이썬 환경변수, WSL, 도커 권한 삽질은 이제 그만!<br class="hidden sm:inline"/>
+        교육생 입장에서 직접 겪었던 필수 도구들을 <strong class="text-slate-900">단 한 번의 클릭</strong>으로 무인 설치해 줍니다.
       </p>
 
       <!-- CTA Buttons -->
       <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14">
-        <a href="downloads/OnePunch.exe" download="OnePunch.exe" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-lg shadow-xl shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+        <a href="downloads/OnePunch.exe" download="OnePunch.exe" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-lg shadow-xl shadow-blue-600/25 transition-all hover:scale-[1.02] active:scale-[0.98]">
           <i class="fa-solid fa-download text-xl"></i>
           <span>OnePunch.exe 다운로드</span>
-          <span class="text-xs py-0.5 px-2 rounded-full bg-white/20 font-normal">v3.0 (50KB)</span>
+          <span class="text-xs py-0.5 px-2.5 rounded-full bg-white/20 font-medium">v3.0 (50KB)</span>
         </a>
-        <a href="#feedback" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-base border border-slate-800 transition-all">
+        <a href="#feedback" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-semibold text-base border border-slate-300 shadow-sm transition-all hover:border-slate-400">
           <i class="fa-brands fa-discord text-[#5865F2] text-lg"></i>
           <span>디스코드 버그 제보</span>
         </a>
       </div>
 
-      <!-- Live Terminal Preview Simulation -->
-      <div class="max-w-2xl mx-auto rounded-xl bg-slate-900/90 border border-slate-800 shadow-2xl text-left overflow-hidden">
+      <!-- Live Terminal Preview Simulation (High-Contrast Modern Card) -->
+      <div class="max-w-2xl mx-auto rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl text-left overflow-hidden">
         <div class="px-4 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-full bg-rose-500/80"></span>
-            <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
-            <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+            <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
             <span class="ml-2 text-xs text-slate-400 font-mono">cmd.exe - 원펀치 v3.0</span>
           </div>
           <span class="text-xs text-slate-500 font-mono">Administrator</span>
         </div>
-        <div class="p-5 font-mono text-xs sm:text-sm text-slate-300 space-y-2">
+        <div class="p-5 font-mono text-xs sm:text-sm text-slate-200 space-y-2">
           <p class="text-cyan-400 font-bold">================== [원펀치 (OnePunch) v3.0] ==================</p>
-          <p class="text-emerald-400">* 패키지 엔진: Chocolatey [준비 완료] | 공식 인스톨러 자동 폴백 지원</p>
-          <div class="py-1 text-slate-400 border-y border-slate-800/80 my-2 space-y-1">
-            <p><span class="text-emerald-400 font-bold">[1]</span> 전체 설치</p>
-            <p><span class="text-slate-200">[2]</span> Git for Windows</p>
-            <p><span class="text-slate-200">[3]</span> Python 3.12</p>
-            <p><span class="text-slate-200">[4]</span> Visual Studio Code (한국어 언어팩 전용)</p>
-            <p><span class="text-slate-200">[5]</span> Docker Desktop</p>
-            <p><span class="text-slate-200">[6]</span> WSL2 & Ubuntu 24.04 LTS</p>
-            <p><span class="text-slate-200">[7]</span> Discord</p>
-            <p><span class="text-slate-200">[8]</span> WSL 리눅스 개발 환경 설정</p>
-            <p><span class="text-slate-200">[9]</span> Chocolatey 패키지 매니저 안전 설치</p>
-            <p><span class="text-slate-200">[10]</span> 환경변수 및 바로가기 복구</p>
-            <p><span class="text-slate-200">[11]</span> 설치 상태 검증</p>
+          <p class="text-emerald-400">* 설치 엔진: 공식 고속 무인 인스톨러 | 초코레이틀리 안전 지원</p>
+          <div class="py-1 text-slate-300 border-y border-slate-800 my-2 space-y-1">
+            <p><span class="text-emerald-400 font-bold">[1]</span> 전체 설치 (가상화 재부팅 & 자동 이어하기) [추천]</p>
+            <p><span class="text-slate-300">[2]</span> Git for Windows</p>
+            <p><span class="text-slate-300">[3]</span> Python 3.12</p>
+            <p><span class="text-slate-300">[4]</span> Visual Studio Code (한국어 언어팩 전용)</p>
+            <p><span class="text-slate-300">[5]</span> Docker Desktop</p>
+            <p><span class="text-slate-300">[6]</span> WSL2 & Ubuntu 24.04 LTS</p>
+            <p><span class="text-slate-300">[7]</span> Discord</p>
+            <p><span class="text-slate-300">[8]</span> WSL 리눅스 개발 환경 설정</p>
+            <p><span class="text-slate-300">[9]</span> Chocolatey 패키지 매니저 안전 설치</p>
+            <p><span class="text-slate-300">[10]</span> 환경변수 및 바로가기 복구</p>
+            <p><span class="text-slate-300">[11]</span> 설치 상태 검증</p>
           </div>
           <p class="text-yellow-400">선택 [0-11]: <span class="text-white animate-pulse">1_</span></p>
         </div>
@@ -126,100 +126,100 @@
   </section>
 
   <!-- Features Grid -->
-  <section id="features" class="py-20 bg-slate-950 border-b border-slate-900">
+  <section id="features" class="py-20 bg-white border-b border-slate-200">
     <div class="max-w-6xl mx-auto px-4 sm:px-6">
       <div class="text-center max-w-2xl mx-auto mb-16">
-        <h2 class="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">KEY FEATURES</h2>
-        <h3 class="text-3xl font-extrabold text-white">교육생 시점에서 겪은 삽질을 한 방에 해결</h3>
-        <p class="text-slate-400 text-sm mt-3">수업 첫날부터 환경 설정 에러 때문에 진 빠지지 않도록, 직접 겪어보고 다듬은 맞춤 기능들입니다.</p>
+        <h2 class="text-xs uppercase tracking-widest text-blue-600 font-bold mb-3">KEY FEATURES</h2>
+        <h3 class="text-3xl font-extrabold text-slate-900">교육생 시점에서 겪은 삽질을 한 방에 해결</h3>
+        <p class="text-slate-500 text-sm mt-3">수업 첫날부터 환경 설정 에러 때문에 진 빠지지 않도록, 직접 겪어보고 다듬은 맞춤 기능들입니다.</p>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         <!-- Feature 0: Git -->
-        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-orange-500/50 transition-all hover:-translate-y-1">
-          <div class="w-12 h-12 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center text-xl mb-4 border border-orange-500/20">
+        <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/90 hover:border-orange-400 hover:bg-white hover:shadow-lg transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center text-xl mb-4 border border-orange-200">
             <i class="fa-brands fa-git-alt"></i>
           </div>
-          <h4 class="text-lg font-bold text-white mb-2">Git for Windows 전역 설정</h4>
-          <p class="text-sm text-slate-400 leading-relaxed">
-            Windows용 최신 Git을 무인 설치하고 Git Credential Manager와 시스템 PATH를 자동 등록하여 새 터미널 어디서든 즉시 <code class="text-orange-300">git</code> 명령어를 사용할 수 있습니다.
+          <h4 class="text-lg font-bold text-slate-900 mb-2">Git for Windows 전역 설정</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Windows용 최신 Git을 무인 설치하고 Git Credential Manager와 시스템 PATH를 자동 등록하여 새 터미널 어디서든 즉시 <code class="px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200 font-mono text-xs">git</code> 명령어를 사용할 수 있습니다.
           </p>
         </div>
 
-        <!-- Feature 1 -->
-        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-blue-500/50 transition-all hover:-translate-y-1">
-          <div class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center text-xl mb-4 border border-blue-500/20">
+        <!-- Feature 1: WSL2 -->
+        <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/90 hover:border-blue-400 hover:bg-white hover:shadow-lg transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl mb-4 border border-blue-200">
             <i class="fa-brands fa-linux"></i>
           </div>
-          <h4 class="text-lg font-bold text-white mb-2">창 꺼짐 없는 WSL2 & Ubuntu</h4>
-          <p class="text-sm text-slate-400 leading-relaxed">
-            클릭 즉시 닫히던 기존 바로가기 문제 해결! Keep-Alive 래퍼를 적용하여 리눅스 사용자 홈(<code class="text-blue-300">~</code>)으로 바로 연결되는 전용 바탕화면 아이콘을 생성합니다.
+          <h4 class="text-lg font-bold text-slate-900 mb-2">창 꺼짐 없는 WSL2 & Ubuntu</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            클릭 즉시 닫히던 기존 바로가기 문제 해결! Keep-Alive 래퍼를 적용하여 리눅스 사용자 홈(<code class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono text-xs">~</code>)으로 바로 연결되는 전용 바탕화면 아이콘을 생성합니다.
           </p>
         </div>
 
-        <!-- Feature 2 -->
-        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-indigo-500/50 transition-all hover:-translate-y-1">
-          <div class="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xl mb-4 border border-indigo-500/20">
+        <!-- Feature 2: Docker -->
+        <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/90 hover:border-sky-400 hover:bg-white hover:shadow-lg transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center text-xl mb-4 border border-sky-200">
             <i class="fa-brands fa-docker"></i>
           </div>
-          <h4 class="text-lg font-bold text-white mb-2">Docker Desktop & 권한 자동 세팅</h4>
-          <p class="text-sm text-slate-400 leading-relaxed">
-            WSL2 백엔드로 자동 설치하며, 설치 후 자주 발생하는 <code class="text-indigo-300">docker.sock permission denied</code> 에러를 방지하기 위해 사용자를 docker 그룹에 자동 등록합니다.
+          <h4 class="text-lg font-bold text-slate-900 mb-2">Docker Desktop & WSL 통합 자동화</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            최신 Docker Desktop 설정(<code class="px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 font-mono text-xs">settings-store.json</code>)을 자동 튜닝하여 WSL Ubuntu 연동 스위치를 사전에 켜두고, 리눅스 docker 그룹 권한까지 자동 등록합니다.
           </p>
         </div>
 
-        <!-- Feature 3 -->
-        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-purple-500/50 transition-all hover:-translate-y-1">
-          <div class="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-xl mb-4 border border-purple-500/20">
+        <!-- Feature 3: Python -->
+        <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/90 hover:border-indigo-400 hover:bg-white hover:shadow-lg transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl mb-4 border border-indigo-200">
             <i class="fa-brands fa-python"></i>
           </div>
-          <h4 class="text-lg font-bold text-white mb-2">Python 3.12 전역 환경변수</h4>
-          <p class="text-sm text-slate-400 leading-relaxed">
-            WindowsApps Store 스텁을 무력화하고 전역 시스템 PATH에 등록하여 새 CMD나 PowerShell 어디서든 즉시 <code class="text-purple-300">python</code> 및 <code class="text-purple-300">pip</code> 명령을 실행할 수 있습니다.
+          <h4 class="text-lg font-bold text-slate-900 mb-2">Python 3.12 전역 환경변수</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            WindowsApps Store 가짜 스텁을 무력화하고 전역 시스템 PATH에 등록하여 새 CMD나 PowerShell 어디서든 즉시 <code class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono text-xs">python</code> 및 <code class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono text-xs">pip</code> 명령을 실행할 수 있습니다.
           </p>
         </div>
 
-        <!-- Feature 4 -->
-        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-sky-500/50 transition-all hover:-translate-y-1">
-          <div class="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center text-xl mb-4 border border-sky-500/20">
+        <!-- Feature 4: VS Code Korean -->
+        <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/90 hover:border-blue-400 hover:bg-white hover:shadow-lg transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl mb-4 border border-blue-200">
             <i class="fa-solid fa-code"></i>
           </div>
-          <h4 class="text-lg font-bold text-white mb-2">VS Code 필수 확장 4종 자동 설치</h4>
-          <p class="text-sm text-slate-400 leading-relaxed">
-            한국어 언어팩, WSL Remote 확장, Python 확장, GitLens까지 무인으로 자동 설치하여 수업 시작 즉시 코딩이 가능한 완벽한 IDE 환경을 제공합니다.
+          <h4 class="text-lg font-bold text-slate-900 mb-2">VS Code 한국어 언어팩 전용 세팅</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            공식 한국어 언어팩 무인 설치 및 <code class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono text-xs">argv.json</code> 한글 로케일 주입, 전용 바로가기(<code class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono text-xs">--locale=ko</code>)까지 구성하여 더블클릭 즉시 100% 한글로 시작됩니다.
           </p>
         </div>
 
-        <!-- Feature 5 -->
-        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/50 transition-all hover:-translate-y-1">
-          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4 border border-emerald-500/20">
+        <!-- Feature 5: WSL Dev -->
+        <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/90 hover:border-emerald-400 hover:bg-white hover:shadow-lg transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl mb-4 border border-emerald-200">
             <i class="fa-solid fa-terminal"></i>
           </div>
-          <h4 class="text-lg font-bold text-white mb-2">리눅스 패키지 & 파워 툴 프로비저닝</h4>
-          <p class="text-sm text-slate-400 leading-relaxed">
-            Ubuntu 내부에 <code class="text-emerald-300">build-essential</code>, <code class="text-emerald-300">python3-venv</code>, <code class="text-emerald-300">ruff</code> 및 생산성 도구(<code class="text-emerald-300">btop, tmux, ripgrep, fzf</code>)를 일괄 구성합니다.
+          <h4 class="text-lg font-bold text-slate-900 mb-2">리눅스 개발 도구 & 계정 무인 세팅</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            비밀번호 입력 창에서 멈추지 않도록 전용 개발자 계정(<code class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-xs">developer / 1234</code>)과 무비밀번호 sudo를 자동 프로비저닝하고 build-essential, git, venv, ruff를 일괄 설치합니다.
           </p>
         </div>
 
-        <!-- Feature 6 -->
-        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-amber-500/50 transition-all hover:-translate-y-1">
-          <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl mb-4 border border-amber-500/20">
+        <!-- Feature 6: Engine -->
+        <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/90 hover:border-amber-400 hover:bg-white hover:shadow-lg transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl mb-4 border border-amber-200">
             <i class="fa-solid fa-bolt"></i>
           </div>
-          <h4 class="text-lg font-bold text-white mb-2">초코레이틀리 자동 사전 설치</h4>
-          <p class="text-sm text-slate-400 leading-relaxed">
-            실행 시 백그라운드에서 Chocolatey를 자동 구성하여 가장 빠르고 안정적인 패키지 관리를 제공하며, 오프라인 시에도 공식 인스톨러로 부드럽게 자동 폴백합니다.
+          <h4 class="text-lg font-bold text-slate-900 mb-2">초고속 공식 엔진 & 초코레이틀리</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            제조사 공식 CDN을 통한 초고속 무인 다운로드로 방화벽/보안 정책 오류를 방지하며, 필요 시 메뉴에서 Chocolatey 패키지 매니저를 선택 설치할 수 있습니다.
           </p>
         </div>
 
         <!-- Feature 7: Discord -->
-        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-[#5865F2]/50 transition-all hover:-translate-y-1">
-          <div class="w-12 h-12 rounded-xl bg-[#5865F2]/10 text-[#5865F2] flex items-center justify-center text-xl mb-4 border border-[#5865F2]/20">
+        <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/90 hover:border-[#5865F2] hover:bg-white hover:shadow-lg transition-all hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-violet-100 text-[#5865F2] flex items-center justify-center text-xl mb-4 border border-violet-200">
             <i class="fa-brands fa-discord"></i>
           </div>
-          <h4 class="text-lg font-bold text-white mb-2">Discord 데스크톱 앱 자동 설치</h4>
-          <p class="text-sm text-slate-400 leading-relaxed">
+          <h4 class="text-lg font-bold text-slate-900 mb-2">Discord 데스크톱 앱 자동 설치</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
             부트캠프/교육 과정의 실시간 소통, 과제 질문, 팀 프로젝트를 위한 Discord 공식 앱을 무인 설치하고 바탕화면 바로가기를 자동 생성합니다.
           </p>
         </div>
@@ -229,46 +229,46 @@
   </section>
 
   <!-- Step-by-Step Guide -->
-  <section id="guide" class="py-20 bg-slate-900/30 border-b border-slate-900">
+  <section id="guide" class="py-20 bg-slate-100/70 border-b border-slate-200">
     <div class="max-w-4xl mx-auto px-4 sm:px-6">
       <div class="text-center mb-16">
-        <h2 class="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">HOW TO USE</h2>
-        <h3 class="text-3xl font-extrabold text-white">단 3단계로 끝나는 개발 환경 세팅</h3>
+        <h2 class="text-xs uppercase tracking-widest text-blue-600 font-bold mb-3">HOW TO USE</h2>
+        <h3 class="text-3xl font-extrabold text-slate-900">단 3단계로 끝나는 개발 환경 세팅</h3>
       </div>
 
       <div class="space-y-6">
-        <div class="flex items-start gap-5 p-6 rounded-2xl bg-slate-900/80 border border-slate-800">
-          <div class="w-10 h-10 rounded-full bg-blue-600/20 text-blue-400 font-bold flex items-center justify-center border border-blue-500/30 shrink-0">
+        <div class="flex items-start gap-5 p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center border border-blue-200 shrink-0">
             1
           </div>
           <div>
-            <h4 class="text-lg font-bold text-white mb-1">OnePunch.exe 다운로드</h4>
-            <p class="text-sm text-slate-400">
+            <h4 class="text-lg font-bold text-slate-900 mb-1">OnePunch.exe 다운로드</h4>
+            <p class="text-sm text-slate-600">
               상단의 다운로드 버튼을 클릭하거나 USB로 받아서 개인 PC 또는 교육장 PC에 저장합니다. (용량: 약 50KB)
             </p>
           </div>
         </div>
 
-        <div class="flex items-start gap-5 p-6 rounded-2xl bg-slate-900/80 border border-slate-800">
-          <div class="w-10 h-10 rounded-full bg-indigo-600/20 text-indigo-400 font-bold flex items-center justify-center border border-indigo-500/30 shrink-0">
+        <div class="flex items-start gap-5 p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center border border-indigo-200 shrink-0">
             2
           </div>
           <div>
-            <h4 class="text-lg font-bold text-white mb-1">관리자 권한으로 실행</h4>
-            <p class="text-sm text-slate-400">
+            <h4 class="text-lg font-bold text-slate-900 mb-1">관리자 권한으로 실행</h4>
+            <p class="text-sm text-slate-600">
               프로그램을 더블 클릭합니다. UAC(사용자 계정 컨트롤) 승인 창이 뜨면 <strong>'예'</strong>를 눌러 관리자 권한을 승인합니다.
             </p>
           </div>
         </div>
 
-        <div class="flex items-start gap-5 p-6 rounded-2xl bg-slate-900/80 border border-slate-800">
-          <div class="w-10 h-10 rounded-full bg-emerald-600/20 text-emerald-400 font-bold flex items-center justify-center border border-emerald-500/30 shrink-0">
+        <div class="flex items-start gap-5 p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center border border-emerald-200 shrink-0">
             3
           </div>
           <div>
-            <h4 class="text-lg font-bold text-white mb-1">메뉴에서 [1] 입력 후 엔터</h4>
-            <p class="text-sm text-slate-400">
-              콘솔 메뉴에서 <code class="text-emerald-300 font-bold">1</code>을 입력하고 엔터를 누르면 모든 도구가 자동으로 무인 설치됩니다.
+            <h4 class="text-lg font-bold text-slate-900 mb-1">메뉴에서 [1] 입력 후 엔터</h4>
+            <p class="text-sm text-slate-600">
+              콘솔 메뉴에서 <code class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold font-mono">1</code>을 입력하고 엔터를 누르면 모든 도구가 자동으로 무인 설치됩니다.
               이미 설치되어 있는 도구는 4단계 심층 감지로 건너뛰므로 안심하세요!
             </p>
           </div>
@@ -278,38 +278,38 @@
   </section>
 
   <!-- Bug Report & Discord Callout -->
-  <section id="feedback" class="py-20 bg-slate-950 border-b border-slate-900">
+  <section id="feedback" class="py-20 bg-white border-b border-slate-200">
     <div class="max-w-3xl mx-auto px-4 sm:px-6">
       
-      <div class="p-8 sm:p-12 rounded-3xl bg-gradient-to-b from-indigo-950/40 to-slate-900/90 border border-indigo-500/30 shadow-2xl text-center relative overflow-hidden">
+      <div class="p-8 sm:p-12 rounded-3xl bg-gradient-to-br from-indigo-50/80 via-blue-50/60 to-purple-50/70 border border-indigo-200 shadow-xl text-center relative overflow-hidden">
         
         <!-- Background Glow -->
-        <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div class="w-16 h-16 rounded-2xl bg-[#5865F2]/20 border border-[#5865F2]/40 text-[#5865F2] flex items-center justify-center text-3xl mx-auto mb-6 shadow-lg shadow-[#5865F2]/20">
+        <div class="w-16 h-16 rounded-2xl bg-white border border-indigo-200 text-[#5865F2] flex items-center justify-center text-3xl mx-auto mb-6 shadow-md shadow-indigo-500/10">
           <i class="fa-brands fa-discord"></i>
         </div>
 
-        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#5865F2]/10 border border-[#5865F2]/30 text-indigo-300 text-xs font-semibold mb-4">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white text-indigo-700 text-xs font-semibold mb-4 border border-indigo-200 shadow-sm">
           <span>💬 피드백 & 버그 리포트</span>
         </div>
 
-        <h3 class="text-2xl sm:text-3xl font-extrabold text-white mb-4">
+        <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-4">
           버그 제보는 <span class="text-[#5865F2]">디스코드 댓글</span>로 남겨주세요!
         </h3>
 
-        <p class="text-slate-300 text-sm sm:text-base leading-relaxed max-w-xl mx-auto mb-8">
+        <p class="text-slate-600 text-sm sm:text-base leading-relaxed max-w-xl mx-auto mb-8">
           개인 노트북이나 교육장 PC에서 설치 중 오류가 발생하거나 안 되는 점이 있다면,<br class="hidden sm:inline" />
-          <strong class="text-white">교육 과정 디스코드 채널 댓글</strong>로 편하게 남겨주세요.<br />
+          <strong class="text-slate-900">교육 과정 디스코드 채널 댓글</strong>로 편하게 남겨주세요.<br />
           확인 즉시 수정하여 새 버전을 빠르게 배포하겠습니다!
         </p>
 
-        <div class="inline-flex flex-wrap items-center justify-center gap-3 text-xs text-slate-400 bg-slate-950/60 py-3 px-5 rounded-xl border border-slate-800">
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-check text-emerald-400"></i> Windows 에러 메시지 캡처 환영</span>
-          <span class="text-slate-700 hidden sm:inline">•</span>
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-check text-emerald-400"></i> 원하는 추가 도구 건의 환영</span>
-          <span class="text-slate-700 hidden sm:inline">•</span>
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-check text-emerald-400"></i> 설치 성공 후기도 대환영</span>
+        <div class="inline-flex flex-wrap items-center justify-center gap-3 text-xs text-slate-600 bg-white py-3 px-5 rounded-2xl border border-slate-200 shadow-sm">
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-check text-emerald-600"></i> Windows 에러 메시지 캡처 환영</span>
+          <span class="text-slate-300 hidden sm:inline">•</span>
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-check text-emerald-600"></i> 원하는 추가 도구 건의 환영</span>
+          <span class="text-slate-300 hidden sm:inline">•</span>
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-check text-emerald-600"></i> 설치 성공 후기도 대환영</span>
         </div>
 
       </div>
@@ -318,32 +318,32 @@
   </section>
 
   <!-- FAQ Section -->
-  <section id="faq" class="py-20 bg-slate-900/40">
+  <section id="faq" class="py-20 bg-slate-50">
     <div class="max-w-4xl mx-auto px-4 sm:px-6">
       <div class="text-center mb-16">
-        <h2 class="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">FAQ</h2>
-        <h3 class="text-3xl font-extrabold text-white">자주 묻는 질문</h3>
+        <h2 class="text-xs uppercase tracking-widest text-blue-600 font-bold mb-3">FAQ</h2>
+        <h3 class="text-3xl font-extrabold text-slate-900">자주 묻는 질문</h3>
       </div>
 
       <div class="space-y-4">
-        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-          <h4 class="font-bold text-white text-base mb-2">Q. 이미 파이썬이나 VS Code가 설치되어 있는 PC는 어떻게 되나요?</h4>
-          <p class="text-sm text-slate-400">
-            원펀치는 4단계 심층 감지 엔진을 내장하고 있어 기존 설치 여부와 버전을 정확히 파악합니다. 이미 올바르게 설치된 프로그램은 중복 설치하지 않고 건너뛰며, 누락된 환경변수(PATH)와 한국어 확장팩 등 부족한 부분만 똑똑하게 보완합니다.
+        <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <h4 class="font-bold text-slate-900 text-base mb-2">Q. 이미 파이썬이나 VS Code가 설치되어 있는 PC는 어떻게 되나요?</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            원펀치는 4단계 심층 감지 엔진을 내장하고 있어 기존 설치 여부와 버전을 정확히 파악합니다. 이미 올바르게 설치된 프로그램은 중복 설치하지 않고 건너뛰며, 누락된 환경변수(PATH)와 한국어 언어팩 등 부족한 부분만 똑똑하게 보완합니다.
           </p>
         </div>
 
-        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-          <h4 class="font-bold text-white text-base mb-2">Q. 실습실 PC에 인터넷이 느리거나 패키지 매니저가 안 깔려 있으면요?</h4>
-          <p class="text-sm text-slate-400">
-            원펀치는 실행 즉시 초코레이틀리(Chocolatey)를 자동 점검하여 사전 구성합니다. 만약 네트워크 문제로 초코레이틀리 설치가 실패하더라도 각 도구의 공식 인스톨러(Python.org, Microsoft, Docker) 직접 다운로드 방식으로 자동 폴백되므로 걱정 없습니다.
+        <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <h4 class="font-bold text-slate-900 text-base mb-2">Q. 실습실 PC에 인터넷이 느리거나 패키지 매니저가 안 깔려 있으면요?</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            원펀치는 공식 CDN 인스톨러 직접 다운로드 엔진을 기본으로 사용하여 별도 외부 런타임 없이 초고속으로 설치됩니다. 혹시 모를 경우를 위해 초코레이틀리(Chocolatey) 패키지 매니저 개별 설치 메뉴도 지원합니다.
           </p>
         </div>
 
-        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-          <h4 class="font-bold text-white text-base mb-2">Q. WSL 바탕화면 바로가기를 누르면 왜 창이 안 꺼지나요?</h4>
-          <p class="text-sm text-slate-400">
-            기존 WSL 단축 아이콘은 초기 설정 미완료 시 즉시 닫혀버리는 문제가 있었습니다. 원펀치는 안전한 Keep-Alive 래퍼를 적용하여 리눅스 계정의 홈 디렉터리(<code class="text-blue-300">/home/유저명</code>)로 바로 진입하며, 오류가 나더라도 에러 메시지를 확인할 수 있도록 창이 유지됩니다.
+        <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <h4 class="font-bold text-slate-900 text-base mb-2">Q. WSL 바탕화면 바로가기를 누르면 왜 창이 안 꺼지나요?</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            기존 WSL 단축 아이콘은 초기 설정 미완료 시 즉시 닫혀버리는 문제가 있었습니다. 원펀치는 안전한 Keep-Alive 래퍼를 적용하여 리눅스 계정의 홈 디렉터리(<code class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono text-xs">~</code>)로 바로 진입하며, 오류가 나더라도 에러 메시지를 확인할 수 있도록 창이 유지됩니다.
           </p>
         </div>
       </div>
@@ -351,13 +351,13 @@
   </section>
 
   <!-- Footer -->
-  <footer class="py-10 bg-slate-950 border-t border-slate-900 text-center text-xs text-slate-500">
+  <footer class="py-10 bg-white border-t border-slate-200 text-center text-xs text-slate-500">
     <div class="max-w-6xl mx-auto px-4 space-y-3">
-      <div class="flex items-center justify-center gap-2 text-sm text-slate-300 font-bold">
+      <div class="flex items-center justify-center gap-2 text-sm text-slate-800 font-bold">
         <span>🥊 원펀치 (OnePunch) v3.0</span>
       </div>
       <p>코딩 교육생 동기들을 위해 직접 만든 원클릭 개발 환경 세팅기 | Windows 10/11 64-bit 지원</p>
-      <p class="text-slate-600">공용 실습실 PC는 퇴실 전 반드시 본인 GitHub에 'git push' 잊지 마세요! 😉</p>
+      <p class="text-slate-400">공용 실습실 PC는 퇴실 전 반드시 본인 GitHub에 'git push' 잊지 마세요! 😉</p>
     </div>
   </footer>
 

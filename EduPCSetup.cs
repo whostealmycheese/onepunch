@@ -222,7 +222,7 @@ namespace OnePunchSetup
                 PrintMenu();
 
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Write("\n선택 [0-13]: ");
+                Console.Write("\n선택 [0-11]: ");
                 Console.ForegroundColor = ConsoleColor.White;
 
                 string choice = ReadLineWithVisibleEcho();
@@ -293,16 +293,14 @@ namespace OnePunchSetup
             Console.ResetColor();
             Console.WriteLine(" [2] Git for Windows");
             Console.WriteLine(" [3] Python 3.12");
-            Console.WriteLine(" [4] Visual Studio Code");
+            Console.WriteLine(" [4] Visual Studio Code (한국어 언어팩 전용)");
             Console.WriteLine(" [5] Docker Desktop");
             Console.WriteLine(" [6] WSL2 & Ubuntu 24.04 LTS");
             Console.WriteLine(" [7] Discord");
             Console.WriteLine(" [8] WSL 리눅스 개발 환경 설정");
-            Console.WriteLine(" [9] 터미널 파워 도구 팩");
-            Console.WriteLine(" [10] 다중 선택 설치");
-            Console.WriteLine(" [11] Chocolatey 패키지 매니저 안전 설치");
-            Console.WriteLine(" [12] 환경변수 및 바로가기 복구");
-            Console.WriteLine(" [13] 설치 상태 검증");
+            Console.WriteLine(" [9] Chocolatey 패키지 매니저 안전 설치");
+            Console.WriteLine(" [10] 환경변수 및 바로가기 복구");
+            Console.WriteLine(" [11] 설치 상태 검증");
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine(" [0] 종료");
             Console.ResetColor();
@@ -361,22 +359,13 @@ namespace OnePunchSetup
                     break;
 
                 case "9":
-                    Console.WriteLine("\n>>> [9. 터미널 파워 도구 팩] 시작\n");
-                    InstallTerminalPowerTools("");
-                    break;
-
-                case "10":
-                    RunMultiSelect();
-                    break;
-
-                case "11":
-                    Console.WriteLine("\n>>> [11. Chocolatey 패키지 매니저 안전 설치] 시작\n");
+                    Console.WriteLine("\n>>> [9. Chocolatey 패키지 매니저 안전 설치] 시작\n");
                     InstallChocolateySafe();
                     BroadcastEnvChange();
                     break;
 
-                case "12":
-                    Console.WriteLine("\n>>> [12. 환경변수 및 바로가기 복구] 시작\n");
+                case "10":
+                    Console.WriteLine("\n>>> [10. 환경변수 및 바로가기 복구] 시작\n");
                     RepairEnvironmentAndShortcuts();
                     BroadcastEnvChange();
                     Console.ForegroundColor = ConsoleColor.Green;
@@ -384,14 +373,15 @@ namespace OnePunchSetup
                     Console.ResetColor();
                     break;
 
+                case "11":
                 case "13":
-                    Console.WriteLine("\n>>> [13. 설치 상태 검증] 시작\n");
+                    Console.WriteLine("\n>>> [11. 설치 상태 검증] 시작\n");
                     ShowVerifyReport();
                     break;
 
                 default:
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("잘못된 번호입니다. [0-13] 사이 숫자를 입력하세요.");
+                    Console.WriteLine("잘못된 번호입니다. [0-11] 사이 숫자를 입력하세요.");
                     Console.ResetColor();
                     break;
             }
@@ -399,6 +389,8 @@ namespace OnePunchSetup
 
         static void RunFullInstallationPipeline()
         {
+            PerformPreFlightChecks();
+
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine("\n================================================================================");
             Console.WriteLine("     [원펀치 v3.0 1단계: Windows 개발 환경 및 가상화/Docker 구축 파이프라인]    ");
@@ -498,19 +490,14 @@ namespace OnePunchSetup
             CleanupCorruptDockerSettings();
 
             // 1. WSL 리눅스 내부 개발 환경 설정
-            Console.WriteLine("[이어하기 1/3] WSL 리눅스 개발 도구 구성 (build-essential, python3-venv, ~/projects)");
+            Console.WriteLine("[이어하기 1/2] WSL 리눅스 개발 환경 구성 (build-essential, git, python3-venv, ~/projects)");
             Console.WriteLine("--------------------------------------------------------------------------------");
             ProvisionWSLLinux("");
             var wsl = DetectWSL();
             PrintStepResult("WSL 리눅스 환경", wsl.Installed && wsl.HasUbuntu, wsl.DistroName + " 개발 환경 구성 완료");
 
-            // 2. 터미널 파워 도구 팩
-            Console.WriteLine("\n[이어하기 2/3] 터미널 파워 도구 팩 설치 (btop, tmux, ripgrep, fzf, zoxide, tldr)");
-            Console.WriteLine("--------------------------------------------------------------------------------");
-            InstallTerminalPowerTools("");
-
-            // 3. Docker-WSL2 런타임 권한 연동
-            Console.WriteLine("\n[이어하기 3/3] Docker Desktop & WSL2 런타임 소켓 연동 마무리");
+            // 2. Docker-WSL2 런타임 권한 연동
+            Console.WriteLine("\n[이어하기 2/2] Docker Desktop & WSL2 런타임 소켓 연동 마무리");
             Console.WriteLine("--------------------------------------------------------------------------------");
             CleanupCorruptDockerSettings();
             FixWSLDockerPermission();
@@ -577,49 +564,6 @@ namespace OnePunchSetup
             Console.ForegroundColor = success ? ConsoleColor.Green : ConsoleColor.Yellow;
             Console.WriteLine(string.Format("==> [{0}] {1}: {2}", success ? "성공" : "확인필요", name, detail));
             Console.ResetColor();
-        }
-
-        static void RunMultiSelect()
-        {
-            Console.WriteLine("\n[다중 선택 설치]");
-            Console.WriteLine("  2: Git for Windows");
-            Console.WriteLine("  3: Python 3.12");
-            Console.WriteLine("  4: Visual Studio Code");
-            Console.WriteLine("  5: Docker Desktop");
-            Console.WriteLine("  6: WSL2 & Ubuntu 24.04 LTS");
-            Console.WriteLine("  7: Discord");
-            Console.WriteLine("  8: WSL 리눅스 개발 환경 설정");
-            Console.WriteLine("  9: 터미널 파워 도구 팩");
-            Console.WriteLine("  11: Chocolatey 패키지 매니저 안전 설치");
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.Write("\n설치할 번호를 쉼표로 입력 (예: 2,3,7 또는 4,5,6): ");
-            Console.ForegroundColor = ConsoleColor.White;
-            string input = ReadLineWithVisibleEcho();
-            if (string.IsNullOrEmpty(input)) return;
-
-            string[] tokens = input.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            HashSet<string> selected = new HashSet<string>(tokens);
-
-            PerformPreFlightChecks();
-
-            if (selected.Contains("2")) ExecuteGit();
-            if (selected.Contains("3")) ExecutePython();
-            if (selected.Contains("4")) ExecuteVSCode();
-            if (selected.Contains("7")) ExecuteDiscord();
-            if (selected.Contains("6")) ExecuteWSL();
-            if (selected.Contains("5")) ExecuteDocker();
-            if (selected.Contains("8")) ProvisionWSLLinux("");
-            if (selected.Contains("9")) InstallTerminalPowerTools("");
-            if (selected.Contains("11")) InstallChocolateySafe();
-
-            RepairEnvironmentAndShortcuts();
-            BroadcastEnvChange();
-            ShowVerifyReport();
-
-            if (selected.Contains("5") || selected.Contains("6"))
-            {
-                PromptPostInstallReboot();
-            }
         }
 
         static void PerformPreFlightChecks()
@@ -807,21 +751,10 @@ namespace OnePunchSetup
             {
                 AddToSystemPath(Path.GetDirectoryName(codeCmd));
 
-                Console.WriteLine("[*] 필수 확장팩 설치 중 (WSL, Python, GitLens, 한국어팩)...");
-                string[] extensions = {
-                    "MS-CEINTL.vscode-language-pack-ko",
-                    "ms-vscode-remote.remote-wsl",
-                    "ms-python.python",
-                    "eamodio.gitlens",
-                    "github.vscode-pull-request-github"
-                };
-
-                foreach (var ext in extensions)
-                {
-                    RunProcess(codeCmd, "--install-extension " + ext + " --force", true);
-                }
+                Console.WriteLine("[*] VS Code 한국어 언어팩 전용 설치 중 (MS-CEINTL.vscode-language-pack-ko)...");
+                RunProcess(codeCmd, "--install-extension MS-CEINTL.vscode-language-pack-ko --force", true);
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] VS Code 확장팩 설치 완료");
+                Console.WriteLine("[+] VS Code 한국어 언어팩 설치 완료");
                 Console.ResetColor();
 
                 ConfigureVSCodeLocaleKo();
@@ -829,7 +762,7 @@ namespace OnePunchSetup
                 string codeExe = Path.Combine(targetDir, "Code.exe");
                 if (File.Exists(codeExe))
                 {
-                    CreateShortcut("Visual Studio Code", codeExe, "", codeExe + ",0", "VS Code");
+                    CreateShortcut("Visual Studio Code", codeExe, "--locale=ko", codeExe + ",0", "VS Code");
                 }
             }
         }
@@ -913,6 +846,12 @@ namespace OnePunchSetup
                 {
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine("[+] Ubuntu 24.04 배포판 등록 완료");
+                    Console.ResetColor();
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine("[안내] WSL2 Ubuntu 계정 안내:");
+                    Console.WriteLine("       * 원펀치가 기본 개발자 계정(developer / 1234) 및 무인 로그인을 자동 구성합니다.");
+                    Console.WriteLine("       * 혹시 리눅스 프롬프트에서 직접 비밀번호를 묻더라도 화면에 글자나 별표(*)가");
+                    Console.WriteLine("         보이지 않는 것은 정상이니, 원하는 비밀번호를 치신 후 [Enter]를 누르시면 됩니다.");
                     Console.ResetColor();
                 }
                 else
@@ -1000,6 +939,26 @@ namespace OnePunchSetup
             string distro = string.IsNullOrEmpty(distroName) ? (wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04") : distroName;
             Console.WriteLine("[*] 대상 배포판: " + distro);
 
+            // 0. 리눅스 기본 사용자 계정 자동 구성 (비밀번호 없는 sudo + docker 권한)
+            // 학생들이 WSL 설치 직후 검은 창의 비밀번호 입력(화면에 글자가 안 보임)에 혼란을 겪지 않도록
+            // root 권한으로 안전하게 기본 계정(developer / 1234)을 사전 프로비저닝하고 /etc/wsl.conf 기본 사용자로 지정합니다.
+            Console.WriteLine("[*] WSL 리눅스 사용자 계정 및 비밀번호 자동 구성 중 (개발자 기본 계정: developer / 1234)...");
+            string userSetupCmd =
+                "if ! id -u 1000 >/dev/null 2>&1; then " +
+                "  useradd -m -s /bin/bash -G sudo developer 2>/dev/null || true; " +
+                "  echo 'developer:1234' | chpasswd 2>/dev/null || true; " +
+                "  mkdir -p /etc/sudoers.d && echo 'developer ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/developer && chmod 0440 /etc/sudoers.d/developer; " +
+                "  mkdir -p /etc && (grep -q '\\[user\\]' /etc/wsl.conf 2>/dev/null || printf '\\n[boot]\\nsystemd=true\\n\\n[user]\\ndefault=developer\\n' >> /etc/wsl.conf); " +
+                "else " +
+                "  DEF_USER=$(id -un 1000 2>/dev/null); " +
+                "  if [ -n \"$DEF_USER\" ]; then " +
+                "    usermod -aG sudo \"$DEF_USER\" 2>/dev/null || true; " +
+                "    mkdir -p /etc/sudoers.d && echo \"$DEF_USER ALL=(ALL) NOPASSWD:ALL\" > \"/etc/sudoers.d/$DEF_USER\" && chmod 0440 \"/etc/sudoers.d/$DEF_USER\"; " +
+                "    mkdir -p /etc && (grep -q '\\[user\\]' /etc/wsl.conf 2>/dev/null || printf \"\\n[boot]\\nsystemd=true\\n\\n[user]\\ndefault=$DEF_USER\\n\" >> /etc/wsl.conf); " +
+                "  fi; " +
+                "fi";
+            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, userSetupCmd), true, 30000);
+
             Console.WriteLine("[*] 패키지 설치 중 (build-essential, git, curl, venv, ruff, gh)...");
             string aptCmd = "apt-get update && apt-get install -y build-essential curl wget git unzip python3-pip python3-venv gh jq";
             RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, aptCmd), true, 180000);
@@ -1017,30 +976,6 @@ namespace OnePunchSetup
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("[+] WSL 리눅스 내부 개발 환경 설정 완료");
-            Console.ResetColor();
-        }
-
-        static void InstallTerminalPowerTools(string distroName)
-        {
-            Console.WriteLine("\n[설정] 터미널 파워 도구 팩 설치");
-
-            var wsl = DetectWSL();
-            if (!wsl.Installed || !wsl.HasUbuntu)
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("[-] WSL 또는 Ubuntu 배포판이 아직 준비되지 않았습니다.");
-                Console.WriteLine("    (PC 재부팅 후 배포판이 등록되면 [9]번 메뉴로 개별 실행할 수 있습니다)");
-                Console.ResetColor();
-                return;
-            }
-
-            string distro = string.IsNullOrEmpty(distroName) ? (wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04") : distroName;
-            Console.WriteLine("[*] 도구 설치 중 (btop, tmux, ripgrep, fzf, zoxide, tealdeer)...");
-            string cmd = "apt-get update && apt-get install -y btop tmux ripgrep fzf zoxide tealdeer && tldr --update 2>/dev/null || true";
-            RunProcess("wsl.exe", string.Format("-d {0} -u root -- bash -c \"{1}\"", distro, cmd), true, 180000);
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("[+] 터미널 파워 도구 팩 설치 완료");
             Console.ResetColor();
         }
 
@@ -1075,6 +1010,125 @@ namespace OnePunchSetup
             catch { }
         }
 
+        static void UpdateDockerJsonFile(string filePath, string distro, bool requireSettingsVersion)
+        {
+            try
+            {
+                string json = "";
+                if (File.Exists(filePath))
+                {
+                    json = File.ReadAllText(filePath, Encoding.UTF8);
+                }
+
+                if (string.IsNullOrEmpty(json) || json.Trim() == "{}")
+                {
+                    if (requireSettingsVersion)
+                    {
+                        return;
+                    }
+                    json = "{\n" +
+                           "  \"wslEngineEnabled\": true,\n" +
+                           "  \"enableIntegrationWithDefaultWslDistro\": true,\n" +
+                           "  \"integratedWslDistros\": [\n" +
+                           "    \"" + distro + "\",\n" +
+                           "    \"Ubuntu-24.04\",\n" +
+                           "    \"Ubuntu\"\n" +
+                           "  ]\n" +
+                           "}";
+                    File.WriteAllText(filePath, json, Encoding.UTF8);
+                    Console.WriteLine("[+] Docker Desktop 최신 설정 (" + Path.GetFileName(filePath) + ": " + distro + " 연동) 생성 완료");
+                    return;
+                }
+
+                if (requireSettingsVersion && json.IndexOf("\"settingsVersion\"", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    return;
+                }
+
+                bool modified = false;
+
+                if (json.IndexOf("\"wslEngineEnabled\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    if (json.IndexOf("\"wslEngineEnabled\": false", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        json = json.Replace("\"wslEngineEnabled\": false", "\"wslEngineEnabled\": true");
+                        modified = true;
+                    }
+                    else if (json.IndexOf("\"wslEngineEnabled\":false", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        json = json.Replace("\"wslEngineEnabled\":false", "\"wslEngineEnabled\":true");
+                        modified = true;
+                    }
+                }
+                else
+                {
+                    int brace = json.IndexOf('{');
+                    if (brace >= 0)
+                    {
+                        json = json.Insert(brace + 1, "\n  \"wslEngineEnabled\": true,");
+                        modified = true;
+                    }
+                }
+
+                if (json.IndexOf("\"enableIntegrationWithDefaultWslDistro\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    if (json.IndexOf("\"enableIntegrationWithDefaultWslDistro\": false", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        json = json.Replace("\"enableIntegrationWithDefaultWslDistro\": false", "\"enableIntegrationWithDefaultWslDistro\": true");
+                        modified = true;
+                    }
+                    else if (json.IndexOf("\"enableIntegrationWithDefaultWslDistro\":false", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        json = json.Replace("\"enableIntegrationWithDefaultWslDistro\":false", "\"enableIntegrationWithDefaultWslDistro\":true");
+                        modified = true;
+                    }
+                }
+                else
+                {
+                    int brace = json.IndexOf('{');
+                    if (brace >= 0)
+                    {
+                        json = json.Insert(brace + 1, "\n  \"enableIntegrationWithDefaultWslDistro\": true,");
+                        modified = true;
+                    }
+                }
+
+                if (json.IndexOf("\"integratedWslDistros\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    int arrStart = json.IndexOf("\"integratedWslDistros\"", StringComparison.OrdinalIgnoreCase);
+                    int openBracket = json.IndexOf('[', arrStart);
+                    if (openBracket >= 0)
+                    {
+                        string[] distrosToAdd = { distro, "Ubuntu-24.04", "Ubuntu" };
+                        foreach (var d in distrosToAdd)
+                        {
+                            if (json.IndexOf("\"" + d + "\"", StringComparison.OrdinalIgnoreCase) < 0)
+                            {
+                                json = json.Insert(openBracket + 1, "\n    \"" + d + "\",");
+                                modified = true;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    int brace = json.IndexOf('{');
+                    if (brace >= 0)
+                    {
+                        json = json.Insert(brace + 1, "\n  \"integratedWslDistros\": [ \"" + distro + "\", \"Ubuntu-24.04\", \"Ubuntu\" ],");
+                        modified = true;
+                    }
+                }
+
+                if (modified)
+                {
+                    File.WriteAllText(filePath, json, Encoding.UTF8);
+                    Console.WriteLine("[+] Docker Desktop WSL 연동 (" + Path.GetFileName(filePath) + ": " + distro + " 토글 활성화) 갱신 완료");
+                }
+            }
+            catch { }
+        }
+
         static void ConfigureDockerWSLIntegration()
         {
             try
@@ -1082,100 +1136,43 @@ namespace OnePunchSetup
                 var wsl = DetectWSL();
                 string distro = wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04";
 
-                // 1. Windows 호스트 Docker Desktop settings.json에 WSL2 통합 옵션 안전 점검
-                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                string dockerDir = Path.Combine(appData, "Docker");
-                if (!Directory.Exists(dockerDir)) Directory.CreateDirectory(dockerDir);
-
-                string settingsFile = Path.Combine(dockerDir, "settings.json");
-                if (!File.Exists(settingsFile))
+                List<string> dockerDirs = new List<string>();
+                string currentAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                if (!string.IsNullOrEmpty(currentAppData))
                 {
-                    // 주의: settings.json이 아직 없는 경우 Docker Desktop이 최초 실행 시 정식 settingsVersion을 포함하여 생성해야 합니다.
-                    // 임의로 최소 JSON을 쓰면 settingsVersion 누락으로 Docker Desktop이 크래시하므로 파일 생성을 건너뜁니다.
-                    Console.WriteLine("[*] Docker Desktop 첫 기동 대기 (정상 기동 시 도커가 정식 settings.json을 자동 생성합니다)");
+                    dockerDirs.Add(Path.Combine(currentAppData, "Docker"));
                 }
-                else
+
+                try
                 {
-                    string json = File.ReadAllText(settingsFile);
-
-                    // 만약 settingsVersion이 없는 손상 파일이라면 즉시 삭제하여 도커가 정상 재생성하도록 유도
-                    if (json.IndexOf("\"settingsVersion\"", StringComparison.OrdinalIgnoreCase) < 0)
+                    string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    string usersBase = Path.GetDirectoryName(userProfile);
+                    if (!string.IsNullOrEmpty(usersBase) && Directory.Exists(usersBase))
                     {
-                        try
+                        foreach (var uDir in Directory.GetDirectories(usersBase))
                         {
-                            File.Delete(settingsFile);
-                            Console.WriteLine("[+] Docker Desktop 손상된 설정 파일 정리 완료 (도커가 정상 설정으로 자동 재생성합니다)");
-                        }
-                        catch { }
-                    }
-                    else
-                    {
-                        // 정상적인 settingsVersion이 존재하는 경우에만 안전하게 옵션 보정
-                        bool modified = false;
-
-                        if (json.IndexOf("\"wslEngineEnabled\"", StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            if (json.IndexOf("\"wslEngineEnabled\": false", StringComparison.OrdinalIgnoreCase) >= 0)
-                            {
-                                json = json.Replace("\"wslEngineEnabled\": false", "\"wslEngineEnabled\": true");
-                                modified = true;
-                            }
-                            else if (json.IndexOf("\"wslEngineEnabled\":false", StringComparison.OrdinalIgnoreCase) >= 0)
-                            {
-                                json = json.Replace("\"wslEngineEnabled\":false", "\"wslEngineEnabled\":true");
-                                modified = true;
-                            }
-                        }
-                        else
-                        {
-                            int firstBrace = json.IndexOf('{');
-                            if (firstBrace >= 0)
-                            {
-                                json = json.Insert(firstBrace + 1, "\n  \"wslEngineEnabled\": true,\n  \"enableIntegrationWithDefaultWslDistro\": true,");
-                                modified = true;
-                            }
-                        }
-
-                        if (json.IndexOf("\"enableIntegrationWithDefaultWslDistro\": false", StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            json = json.Replace("\"enableIntegrationWithDefaultWslDistro\": false", "\"enableIntegrationWithDefaultWslDistro\": true");
-                            modified = true;
-                        }
-                        else if (json.IndexOf("\"enableIntegrationWithDefaultWslDistro\":false", StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            json = json.Replace("\"enableIntegrationWithDefaultWslDistro\":false", "\"enableIntegrationWithDefaultWslDistro\":true");
-                            modified = true;
-                        }
-
-                        if (json.IndexOf("\"integratedWslDistros\"", StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            if (json.IndexOf("\"" + distro + "\"", StringComparison.OrdinalIgnoreCase) < 0)
-                            {
-                                int arrStart = json.IndexOf("\"integratedWslDistros\"", StringComparison.OrdinalIgnoreCase);
-                                int openBracket = json.IndexOf('[', arrStart);
-                                if (openBracket >= 0)
-                                {
-                                    json = json.Insert(openBracket + 1, "\n    \"" + distro + "\",");
-                                    modified = true;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            int firstBrace = json.IndexOf('{');
-                            if (firstBrace >= 0)
-                            {
-                                json = json.Insert(firstBrace + 1, "\n  \"integratedWslDistros\": [ \"" + distro + "\", \"Ubuntu\" ],");
-                                modified = true;
-                            }
-                        }
-
-                        if (modified)
-                        {
-                            File.WriteAllText(settingsFile, json, Encoding.UTF8);
-                            Console.WriteLine("[+] Docker Desktop WSL2 연동 설정(settings.json) 자동 갱신 완료");
+                            string dDir = Path.Combine(uDir, @"AppData\Roaming\Docker");
+                            if (!dockerDirs.Contains(dDir)) dockerDirs.Add(dDir);
                         }
                     }
+                }
+                catch { }
+
+                foreach (var dDir in dockerDirs)
+                {
+                    try
+                    {
+                        if (!Directory.Exists(dDir)) Directory.CreateDirectory(dDir);
+
+                        // 1. settings-store.json (최신 Docker Desktop 4.28+ 핵심 설정)
+                        string storeFile = Path.Combine(dDir, "settings-store.json");
+                        UpdateDockerJsonFile(storeFile, distro, false);
+
+                        // 2. settings.json (구형 및 클래식 Docker Desktop 호환)
+                        string settingsFile = Path.Combine(dDir, "settings.json");
+                        UpdateDockerJsonFile(settingsFile, distro, true);
+                    }
+                    catch { }
                 }
 
                 // 2. WSL 내부 docker 소켓 디렉터리 및 그룹 권한 구성 (Ubuntu 배포판이 설치된 경우에만 실행)
@@ -1197,16 +1194,17 @@ namespace OnePunchSetup
                 if (!docker.Installed) return;
 
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string storeFile = Path.Combine(appData, @"Docker\settings-store.json");
                 string settingsFile = Path.Combine(appData, @"Docker\settings.json");
 
                 // 손상된 파일(settingsVersion 누락) 정리
                 CleanupCorruptDockerSettings();
 
-                // Docker Desktop이 아직 settings.json을 안 만들었거나 프로세스가 안 돌고 있다면 1회 실행 유도
+                // Docker Desktop이 아직 설정을 안 만들었거나 프로세스가 안 돌고 있다면 1회 실행 유도
                 bool isRunning = Process.GetProcessesByName("Docker Desktop").Length > 0;
-                if (!File.Exists(settingsFile) && !string.IsNullOrEmpty(docker.Exe) && File.Exists(docker.Exe))
+                if (!File.Exists(storeFile) && !File.Exists(settingsFile) && !string.IsNullOrEmpty(docker.Exe) && File.Exists(docker.Exe))
                 {
-                    Console.WriteLine("[*] Docker Desktop 설정 초기화를 위해 백그라운드 기동 중 (settings.json 대기)...");
+                    Console.WriteLine("[*] Docker Desktop 설정 초기화를 위해 백그라운드 기동 중 (settings-store.json 대기)...");
                     try
                     {
                         Process.Start(new ProcessStartInfo
@@ -1221,7 +1219,7 @@ namespace OnePunchSetup
                     for (int i = 0; i < 15; i++)
                     {
                         System.Threading.Thread.Sleep(1000);
-                        if (File.Exists(settingsFile)) break;
+                        if (File.Exists(storeFile) || File.Exists(settingsFile)) break;
                     }
                 }
 
@@ -1278,7 +1276,7 @@ namespace OnePunchSetup
             if (code.Installed && File.Exists(code.CodeCmd))
             {
                 AddToSystemPath(Path.GetDirectoryName(code.CodeCmd));
-                CreateShortcut("Visual Studio Code", Path.Combine(code.Path, "Code.exe"), "", Path.Combine(code.Path, "Code.exe") + ",0", "VS Code");
+                CreateShortcut("Visual Studio Code", Path.Combine(code.Path, "Code.exe"), "--locale=ko", Path.Combine(code.Path, "Code.exe") + ",0", "VS Code");
                 ConfigureVSCodeLocaleKo();
             }
 
@@ -1907,16 +1905,18 @@ namespace OnePunchSetup
             }
 
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string storeFile = Path.Combine(appData, @"Docker\settings-store.json");
             string settingsFile = Path.Combine(appData, @"Docker\settings.json");
+            string checkFile = File.Exists(storeFile) ? storeFile : (File.Exists(settingsFile) ? settingsFile : null);
 
             bool settingsOk = false;
             string distroName = wsl.HasUbuntu ? wsl.DistroName : "Ubuntu-24.04";
 
-            if (File.Exists(settingsFile))
+            if (checkFile != null)
             {
                 try
                 {
-                    string json = File.ReadAllText(settingsFile);
+                    string json = File.ReadAllText(checkFile);
                     bool wslEngine = json.IndexOf("\"wslEngineEnabled\": true", StringComparison.OrdinalIgnoreCase) >= 0 ||
                                      json.IndexOf("\"wslEngineEnabled\":true", StringComparison.OrdinalIgnoreCase) >= 0;
 
@@ -2105,49 +2105,85 @@ namespace OnePunchSetup
         {
             try
             {
-                // 1. %USERPROFILE%\.vscode\argv.json (VS Code 실제 런타임 언어 인자 경로)
-                string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                string dotVscode = Path.Combine(userProfile, ".vscode");
-                if (!Directory.Exists(dotVscode)) Directory.CreateDirectory(dotVscode);
-
-                string rootArgv = Path.Combine(dotVscode, "argv.json");
-                if (File.Exists(rootArgv))
+                List<string> userDirs = new List<string>();
+                string currentUser = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                if (!string.IsNullOrEmpty(currentUser) && Directory.Exists(currentUser))
                 {
-                    string text = File.ReadAllText(rootArgv);
-                    if (text.IndexOf("\"locale\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                    userDirs.Add(currentUser);
+                }
+
+                try
+                {
+                    string usersBase = Path.GetDirectoryName(currentUser);
+                    if (!string.IsNullOrEmpty(usersBase) && Directory.Exists(usersBase))
                     {
-                        text = System.Text.RegularExpressions.Regex.Replace(
-                            text,
-                            "\"locale\"\\s*:\\s*\"[^\"]*\"",
-                            "\"locale\": \"ko\"");
-                    }
-                    else
-                    {
-                        int brace = text.IndexOf('{');
-                        if (brace >= 0)
+                        foreach (var dir in Directory.GetDirectories(usersBase))
                         {
-                            text = text.Insert(brace + 1, "\n\t\"locale\": \"ko\",");
+                            string dirName = Path.GetFileName(dir);
+                            if (dirName.Equals("Public", StringComparison.OrdinalIgnoreCase) ||
+                                dirName.Equals("Default", StringComparison.OrdinalIgnoreCase) ||
+                                dirName.Equals("Default User", StringComparison.OrdinalIgnoreCase) ||
+                                dirName.Equals("All Users", StringComparison.OrdinalIgnoreCase))
+                                continue;
+
+                            if (!userDirs.Contains(dir)) userDirs.Add(dir);
                         }
                     }
-                    File.WriteAllText(rootArgv, text, Encoding.UTF8);
                 }
-                else
+                catch { }
+
+                foreach (var uDir in userDirs)
                 {
-                    File.WriteAllText(rootArgv, "{\n\t\"locale\": \"ko\"\n}\n", Encoding.UTF8);
+                    try
+                    {
+                        // 1. <user>\.vscode\argv.json
+                        string dotVscode = Path.Combine(uDir, ".vscode");
+                        if (!Directory.Exists(dotVscode)) Directory.CreateDirectory(dotVscode);
+
+                        string rootArgv = Path.Combine(dotVscode, "argv.json");
+                        if (File.Exists(rootArgv))
+                        {
+                            string text = File.ReadAllText(rootArgv);
+                            if (text.IndexOf("\"locale\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                text = System.Text.RegularExpressions.Regex.Replace(
+                                    text,
+                                    "\"locale\"\\s*:\\s*\"[^\"]*\"",
+                                    "\"locale\": \"ko\"");
+                            }
+                            else
+                            {
+                                int brace = text.IndexOf('{');
+                                if (brace >= 0)
+                                {
+                                    text = text.Insert(brace + 1, "\n\t\"locale\": \"ko\",");
+                                }
+                                else
+                                {
+                                    text = "{\n\t\"locale\": \"ko\"\n}\n";
+                                }
+                            }
+                            File.WriteAllText(rootArgv, text, Encoding.UTF8);
+                        }
+                        else
+                        {
+                            File.WriteAllText(rootArgv, "{\n\t\"locale\": \"ko\"\n}\n", Encoding.UTF8);
+                        }
+
+                        // 2. <user>\AppData\Roaming\Code\User\locale.json 및 argv.json
+                        string appDataCodeUser = Path.Combine(uDir, @"AppData\Roaming\Code\User");
+                        if (!Directory.Exists(appDataCodeUser)) Directory.CreateDirectory(appDataCodeUser);
+
+                        string localeJson = Path.Combine(appDataCodeUser, "locale.json");
+                        File.WriteAllText(localeJson, "{\n  \"locale\": \"ko\"\n}\n", Encoding.UTF8);
+
+                        string appDataArgv = Path.Combine(appDataCodeUser, "argv.json");
+                        File.WriteAllText(appDataArgv, "{\n  \"locale\": \"ko\"\n}\n", Encoding.UTF8);
+                    }
+                    catch { }
                 }
 
-                // 2. %APPDATA%\Code\User\locale.json 및 argv.json 호환성 보장
-                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                string userDir = Path.Combine(appData, @"Code\User");
-                if (!Directory.Exists(userDir)) Directory.CreateDirectory(userDir);
-
-                string localeJson = Path.Combine(userDir, "locale.json");
-                File.WriteAllText(localeJson, "{\n  \"locale\": \"ko\"\n}", Encoding.UTF8);
-
-                string appDataArgv = Path.Combine(userDir, "argv.json");
-                File.WriteAllText(appDataArgv, "{\n  \"locale\": \"ko\"\n}", Encoding.UTF8);
-
-                Console.WriteLine("[+] VS Code 한국어 언어팩 기본 언어 설정 완료 (.vscode/argv.json -> ko)");
+                Console.WriteLine("[+] VS Code 한국어 언어팩 로케일 영구 적용 완료 (모든 사용자 계정 .vscode/argv.json -> ko)");
             }
             catch { }
         }
@@ -2210,6 +2246,12 @@ namespace OnePunchSetup
         {
             try
             {
+                if (fileName.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) || fileName.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
+                {
+                    args = "/c \"" + fileName + "\" " + args;
+                    fileName = "cmd.exe";
+                }
+
                 ProcessStartInfo psi = new ProcessStartInfo(fileName, args)
                 {
                     UseShellExecute = false
@@ -2251,6 +2293,12 @@ namespace OnePunchSetup
         {
             try
             {
+                if (fileName.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) || fileName.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
+                {
+                    args = "/c \"" + fileName + "\" " + args;
+                    fileName = "cmd.exe";
+                }
+
                 ProcessStartInfo psi = new ProcessStartInfo(fileName, args)
                 {
                     UseShellExecute = false,

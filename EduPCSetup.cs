@@ -164,13 +164,13 @@ namespace OnePunchSetup
             Console.WriteLine("[*] Active Directory(AD) 및 다중 사용자용 'docker-users' 그룹 권한 구성 중...");
             try
             {
-                // 1. docker-users 로컬 그룹 생성 (없는 경우)
-                RunProcess("net.exe", "localgroup docker-users /add", true, 10000);
+                // 1. docker-users 로컬 그룹 생성 (이미 존재 시 발생하는 1379 메시지는 정상 처리하되 콘솔 출력 방지)
+                RunProcessQuiet("net.exe", "localgroup docker-users /add", 10000);
 
-                // 2. 현재 로그인 계정 (도메인 계정 포함: DOMAIN\\user 및 user) 추가
+                // 2. 현재 로그인 계정 (도메인 계정 포함: DOMAIN\\user 및 user) 추가 (이미 등록된 경우 1378 무시)
                 string domainUser = Environment.UserDomainName + "\\" + Environment.UserName;
-                RunProcess("net.exe", string.Format("localgroup docker-users \"{0}\" /add", domainUser), true, 10000);
-                RunProcess("net.exe", string.Format("localgroup docker-users \"{0}\" /add", Environment.UserName), true, 10000);
+                RunProcessQuiet("net.exe", string.Format("localgroup docker-users \"{0}\" /add", domainUser), 10000);
+                RunProcessQuiet("net.exe", string.Format("localgroup docker-users \"{0}\" /add", Environment.UserName), 10000);
 
                 // 3. Authenticated Users (인증된 사용자: S-1-5-11) 추가 -> AD 도메인으로 로그인하는 모든 학생이 Docker 권한 자동 획득
                 try
@@ -179,14 +179,14 @@ namespace OnePunchSetup
                     NTAccount authAccount = (NTAccount)authSid.Translate(typeof(NTAccount));
                     if (authAccount != null && !string.IsNullOrEmpty(authAccount.Value))
                     {
-                        RunProcess("net.exe", string.Format("localgroup docker-users \"{0}\" /add", authAccount.Value), true, 10000);
+                        RunProcessQuiet("net.exe", string.Format("localgroup docker-users \"{0}\" /add", authAccount.Value), 10000);
                     }
                 }
                 catch { }
 
                 // 4. GNIA 학생 도메인 그룹 추가 시도
-                RunProcess("net.exe", "localgroup docker-users \"GNIA\\SG-GNIA-Students-All\" /add", true, 10000);
-                RunProcess("net.exe", "localgroup docker-users \"GNIA\\Domain Users\" /add", true, 10000);
+                RunProcessQuiet("net.exe", "localgroup docker-users \"GNIA\\SG-GNIA-Students-All\" /add", 10000);
+                RunProcessQuiet("net.exe", "localgroup docker-users \"GNIA\\Domain Users\" /add", 10000);
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("[+] docker-users 그룹 권한 구성 완료 (AD 도메인 학생 계정 및 인증된 사용자 권한 부여)");
@@ -306,11 +306,11 @@ namespace OnePunchSetup
                 }
 
                 Console.WriteLine("[*] Active Directory 실습실 다중 사용자용 머신 전역 Git 시스템 설정 중...");
-                RunProcess(gitExe, "config --system init.defaultBranch main", true, 10000);
-                RunProcess(gitExe, "config --system core.autocrlf true", true, 10000);
-                RunProcess(gitExe, "config --system core.quotepath false", true, 10000);
-                RunProcess(gitExe, "config --system --add safe.directory \"*\"", true, 10000);
-                RunProcess(gitExe, "config --system credential.helper manager", true, 10000);
+                RunProcessQuiet(gitExe, "config --system init.defaultBranch main", 10000);
+                RunProcessQuiet(gitExe, "config --system core.autocrlf true", 10000);
+                RunProcessQuiet(gitExe, "config --system core.quotepath false", 10000);
+                RunProcessQuiet(gitExe, "config --system --add safe.directory \"*\"", 10000);
+                RunProcessQuiet(gitExe, "config --system credential.helper manager", 10000);
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("[+] Git 머신 전역 설정 완료 (safe.directory '*', autocrlf, Credential Manager)");
@@ -2699,6 +2699,12 @@ namespace OnePunchSetup
             {
                 return "";
             }
+        }
+
+        static int RunProcessQuiet(string fileName, string args, int timeoutMs = 15000)
+        {
+            RunProcessWithOutput(fileName, args, timeoutMs);
+            return 0;
         }
 
         static void ShowVerifyReport()

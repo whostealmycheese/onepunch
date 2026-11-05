@@ -293,7 +293,7 @@ namespace OnePunchSetup
             Console.ResetColor();
             Console.WriteLine(" [2] Git for Windows");
             Console.WriteLine(" [3] Python 3.12");
-            Console.WriteLine(" [4] Visual Studio Code (한국어 언어팩 전용)");
+            Console.WriteLine(" [4] Visual Studio Code (한국어 & 필수 확장팩)");
             Console.WriteLine(" [5] Docker Desktop");
             Console.WriteLine(" [6] WSL2 & Ubuntu 24.04 LTS");
             Console.WriteLine(" [7] Discord");
@@ -751,10 +751,22 @@ namespace OnePunchSetup
             {
                 AddToSystemPath(Path.GetDirectoryName(codeCmd));
 
-                Console.WriteLine("[*] VS Code 한국어 언어팩 전용 설치 중 (MS-CEINTL.vscode-language-pack-ko)...");
-                RunProcess(codeCmd, "--install-extension MS-CEINTL.vscode-language-pack-ko --force", true);
+                Console.WriteLine("[*] VS Code 필수 확장팩 및 한국어 언어팩 설치 중...");
+                string[] extensions = {
+                    "MS-CEINTL.vscode-language-pack-ko",
+                    "ms-vscode-remote.remote-wsl",
+                    "ms-python.python",
+                    "eamodio.gitlens",
+                    "github.vscode-pull-request-github"
+                };
+
+                foreach (var ext in extensions)
+                {
+                    Console.WriteLine("[*] 확장팩 설치/동기화: " + ext);
+                    RunProcess(codeCmd, "--install-extension " + ext + " --force", true, 60000);
+                }
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] VS Code 한국어 언어팩 설치 완료");
+                Console.WriteLine("[+] VS Code 필수 확장팩 설치 및 검증 완료");
                 Console.ResetColor();
 
                 ConfigureVSCodeLocaleKo();
@@ -763,6 +775,7 @@ namespace OnePunchSetup
                 if (File.Exists(codeExe))
                 {
                     CreateShortcut("Visual Studio Code", codeExe, "--locale=ko", codeExe + ",0", "VS Code");
+                    FixStartMenuVSCodeShortcut(codeExe);
                 }
             }
         }
@@ -1276,7 +1289,9 @@ namespace OnePunchSetup
             if (code.Installed && File.Exists(code.CodeCmd))
             {
                 AddToSystemPath(Path.GetDirectoryName(code.CodeCmd));
-                CreateShortcut("Visual Studio Code", Path.Combine(code.Path, "Code.exe"), "--locale=ko", Path.Combine(code.Path, "Code.exe") + ",0", "VS Code");
+                string codeExe = Path.Combine(code.Path, "Code.exe");
+                CreateShortcut("Visual Studio Code", codeExe, "--locale=ko", codeExe + ",0", "VS Code");
+                FixStartMenuVSCodeShortcut(codeExe);
                 ConfigureVSCodeLocaleKo();
             }
 
@@ -2101,6 +2116,42 @@ namespace OnePunchSetup
             catch { }
         }
 
+        static void SetLocaleInArgvJson(string filePath)
+        {
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    string text = File.ReadAllText(filePath, Encoding.UTF8);
+                    if (text.IndexOf("\"locale\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        text = System.Text.RegularExpressions.Regex.Replace(
+                            text,
+                            "\"locale\"\\s*:\\s*\"[^\"]*\"",
+                            "\"locale\": \"ko\"");
+                    }
+                    else
+                    {
+                        int brace = text.IndexOf('{');
+                        if (brace >= 0)
+                        {
+                            text = text.Insert(brace + 1, "\n\t\"locale\": \"ko\",");
+                        }
+                        else
+                        {
+                            text = "{\n\t\"locale\": \"ko\"\n}\n";
+                        }
+                    }
+                    File.WriteAllText(filePath, text, Encoding.UTF8);
+                }
+                else
+                {
+                    File.WriteAllText(filePath, "{\n\t\"locale\": \"ko\"\n}\n", Encoding.UTF8);
+                }
+            }
+            catch { }
+        }
+
         static void ConfigureVSCodeLocaleKo()
         {
             try
@@ -2139,51 +2190,63 @@ namespace OnePunchSetup
                         // 1. <user>\.vscode\argv.json
                         string dotVscode = Path.Combine(uDir, ".vscode");
                         if (!Directory.Exists(dotVscode)) Directory.CreateDirectory(dotVscode);
+                        SetLocaleInArgvJson(Path.Combine(dotVscode, "argv.json"));
 
-                        string rootArgv = Path.Combine(dotVscode, "argv.json");
-                        if (File.Exists(rootArgv))
-                        {
-                            string text = File.ReadAllText(rootArgv);
-                            if (text.IndexOf("\"locale\"", StringComparison.OrdinalIgnoreCase) >= 0)
-                            {
-                                text = System.Text.RegularExpressions.Regex.Replace(
-                                    text,
-                                    "\"locale\"\\s*:\\s*\"[^\"]*\"",
-                                    "\"locale\": \"ko\"");
-                            }
-                            else
-                            {
-                                int brace = text.IndexOf('{');
-                                if (brace >= 0)
-                                {
-                                    text = text.Insert(brace + 1, "\n\t\"locale\": \"ko\",");
-                                }
-                                else
-                                {
-                                    text = "{\n\t\"locale\": \"ko\"\n}\n";
-                                }
-                            }
-                            File.WriteAllText(rootArgv, text, Encoding.UTF8);
-                        }
-                        else
-                        {
-                            File.WriteAllText(rootArgv, "{\n\t\"locale\": \"ko\"\n}\n", Encoding.UTF8);
-                        }
+                        // 2. <user>\AppData\Roaming\Code\argv.json
+                        string appDataCode = Path.Combine(uDir, @"AppData\Roaming\Code");
+                        if (!Directory.Exists(appDataCode)) Directory.CreateDirectory(appDataCode);
+                        SetLocaleInArgvJson(Path.Combine(appDataCode, "argv.json"));
 
-                        // 2. <user>\AppData\Roaming\Code\User\locale.json 및 argv.json
-                        string appDataCodeUser = Path.Combine(uDir, @"AppData\Roaming\Code\User");
+                        // 3. <user>\AppData\Roaming\Code\User\argv.json & locale.json
+                        string appDataCodeUser = Path.Combine(appDataCode, "User");
                         if (!Directory.Exists(appDataCodeUser)) Directory.CreateDirectory(appDataCodeUser);
-
-                        string localeJson = Path.Combine(appDataCodeUser, "locale.json");
-                        File.WriteAllText(localeJson, "{\n  \"locale\": \"ko\"\n}\n", Encoding.UTF8);
-
-                        string appDataArgv = Path.Combine(appDataCodeUser, "argv.json");
-                        File.WriteAllText(appDataArgv, "{\n  \"locale\": \"ko\"\n}\n", Encoding.UTF8);
+                        SetLocaleInArgvJson(Path.Combine(appDataCodeUser, "argv.json"));
+                        File.WriteAllText(Path.Combine(appDataCodeUser, "locale.json"), "{\n  \"locale\": \"ko\"\n}\n", Encoding.UTF8);
                     }
                     catch { }
                 }
 
                 Console.WriteLine("[+] VS Code 한국어 언어팩 로케일 영구 적용 완료 (모든 사용자 계정 .vscode/argv.json -> ko)");
+            }
+            catch { }
+        }
+
+        static void FixStartMenuVSCodeShortcut(string codeExe)
+        {
+            try
+            {
+                string[] startMenuDirs = {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), @"Programs\Visual Studio Code"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu), @"Programs\Visual Studio Code"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Microsoft\Windows\Start Menu\Programs\Visual Studio Code"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"Microsoft\Windows\Start Menu\Programs\Visual Studio Code")
+                };
+
+                foreach (var dir in startMenuDirs)
+                {
+                    if (Directory.Exists(dir))
+                    {
+                        foreach (var lnk in Directory.GetFiles(dir, "*.lnk"))
+                        {
+                            try
+                            {
+                                string psCmd = string.Format(
+                                    "$w=New-Object -ComObject WScript.Shell; " +
+                                    "$s=$w.CreateShortcut('{0}'); $s.Arguments='--locale=ko'; $s.Save();",
+                                    lnk.Replace("'", "''"));
+
+                                ProcessStartInfo psi = new ProcessStartInfo("powershell", "-NoProfile -Command \"" + psCmd + "\"")
+                                {
+                                    CreateNoWindow = true,
+                                    UseShellExecute = false
+                                };
+                                var p = Process.Start(psi);
+                                if (p != null) p.WaitForExit(3000);
+                            }
+                            catch { }
+                        }
+                    }
+                }
             }
             catch { }
         }
@@ -2204,18 +2267,12 @@ namespace OnePunchSetup
                     try { File.Delete(userLnk); } catch { }
                 }
 
-                // 2. 이미 공용이나 사용자 바탕화면에 바로가기가 존재하는 경우 추가 생성 생략 (중복 방지)
-                if (File.Exists(publicLnk) || File.Exists(userLnk))
-                {
-                    Console.WriteLine("[+] 바로가기 확인됨: " + name);
-                    return;
-                }
+                string targetLnk = File.Exists(publicLnk) ? publicLnk : userLnk;
 
-                // 3. 둘 다 없는 경우에만 개인 바탕화면에 1개 생성
                 string psCmd = string.Format(
                     "$w=New-Object -ComObject WScript.Shell; " +
                     "$s=$w.CreateShortcut('{0}'); $s.TargetPath='{1}'; if('{2}'){{$s.Arguments='{2}'}}; if('{3}'){{$s.IconLocation='{3}'}}; if('{4}'){{$s.Description='{4}'}}; $s.Save();",
-                    userLnk.Replace("'", "''"), target.Replace("'", "''"), args.Replace("'", "''"), icon.Replace("'", "''"), desc.Replace("'", "''"));
+                    targetLnk.Replace("'", "''"), target.Replace("'", "''"), args.Replace("'", "''"), icon.Replace("'", "''"), desc.Replace("'", "''"));
 
                 ProcessStartInfo psi = new ProcessStartInfo("powershell", "-NoProfile -Command \"" + psCmd + "\"")
                 {
@@ -2224,7 +2281,7 @@ namespace OnePunchSetup
                 };
                 var p = Process.Start(psi);
                 if (p != null) p.WaitForExit(5000);
-                Console.WriteLine("[+] 바로가기 생성 완료: " + name);
+                Console.WriteLine("[+] 바로가기 생성/갱신 완료: " + name + (string.IsNullOrEmpty(args) ? "" : " (인수: " + args + ")"));
             }
             catch { }
         }

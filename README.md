@@ -43,7 +43,7 @@
  [1] 전체 설치 (1단계 완료 후 가상화 재부팅 & 자동 이어하기) [추천]
  [2] Git for Windows
  [3] Python 3.12
- [4] Visual Studio Code (한국어 언어팩 전용)
+ [4] Visual Studio Code (한국어 & 필수 확장팩)
  [5] Docker Desktop
  [6] WSL2 & Ubuntu 24.04 LTS
  [7] Discord

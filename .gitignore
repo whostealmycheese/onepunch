@@ -3,6 +3,7 @@ installers/
 *.tmp
 *.log
 *.pdb
+*.old
 
 # Local Vercel CLI cache
 .vercel/

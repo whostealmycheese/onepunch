@@ -139,19 +139,18 @@
           <p class="text-slate-200 text-xs sm:text-sm">* 계정 환경: <span class="text-cyan-400 font-semibold">GNIA\developer3025</span> <span class="text-yellow-400">[Active Directory 도메인 연동 환경 - 다중 사용자 모드]</span></p>
           <p class="text-slate-400 text-xs sm:text-sm">* 실습실 PC는 공용이므로 퇴실 전 반드시 GitHub에 'git push' 하세요.</p>
           <div class="py-1 text-slate-300 border-y border-slate-800 my-2 space-y-1">
-            <p><span class="text-emerald-400 font-bold">[1]</span> 전체 설치 (1단계 완료 후 가상화 재부팅 & 자동 이어하기) [추천]</p>
+            <p><span class="text-emerald-400 font-bold">[1]</span> 전체 설치 (Windows & WSL2 개발 환경 원스톱 구성) [추천]</p>
             <p><span class="text-slate-300">[2]</span> Git for Windows</p>
             <p><span class="text-slate-300">[3]</span> Python 3.12</p>
-            <p><span class="text-slate-300">[4]</span> Visual Studio Code (한국어 언어팩 단독 구성)</p>
+            <p><span class="text-slate-300">[4]</span> Visual Studio Code (공식 무인 설치)</p>
             <p><span class="text-slate-300">[5]</span> Docker Desktop</p>
             <p><span class="text-slate-300">[6]</span> WSL2 & Ubuntu 24.04 LTS</p>
             <p><span class="text-slate-300">[7]</span> Discord</p>
             <p><span class="text-slate-300">[8]</span> WSL 리눅스 개발 환경 설정</p>
-            <p><span class="text-slate-300">[9]</span> Chocolatey 패키지 매니저 안전 설치</p>
-            <p><span class="text-slate-300">[10]</span> 환경변수 및 바로가기 복구</p>
-            <p><span class="text-slate-300">[11]</span> 설치 상태 검증</p>
+            <p><span class="text-slate-300">[9]</span> 환경변수 및 바로가기 복구</p>
+            <p><span class="text-slate-300">[10]</span> 설치 상태 검증</p>
           </div>
-          <p class="text-yellow-400">선택 [0-11]: <span class="text-white animate-pulse">1_</span></p>
+          <p class="text-yellow-400">선택 [0-10]: <span class="text-white animate-pulse">1_</span></p>
         </div>
       </div>
 
@@ -269,9 +268,9 @@
             class="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl mb-4 border border-amber-200">
             <i class="fa-solid fa-bolt"></i>
           </div>
-          <h4 class="text-lg font-bold text-slate-900 mb-2">초고속 공식 엔진 & 초코레이틀리</h4>
+          <h4 class="text-lg font-bold text-slate-900 mb-2">초고속 공식 엔진 & 무인 자동화</h4>
           <p class="text-sm text-slate-600 leading-relaxed">
-            제조사 공식 CDN을 통한 초고속 무인 다운로드로 방화벽/보안 정책 오류를 방지하며, 필요 시 메뉴에서 Chocolatey 패키지 매니저를 선택 설치할 수 있습니다.
+            제조사 공식 CDN을 통한 초고속 무인 다운로드로 방화벽/보안 정책 오류를 방지하며, 불필요한 외부 패키지 매니저 없이 깔끔하고 안전하게 설치를 완료합니다.
           </p>
         </div>
 
@@ -641,19 +640,14 @@
         <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm">
           <h4 class="font-bold text-slate-900 text-base mb-2">Q. 실습실 PC에 인터넷이 느리거나 패키지 매니저가 안 깔려 있으면요?</h4>
           <p class="text-sm text-slate-600 leading-relaxed">
-            원펀치는 공식 CDN 인스톨러 직접 다운로드 엔진을 기본으로 사용하여 별도 외부 런타임 없이 초고속으로 설치됩니다. 혹시 모를 경우를 위해 초코레이틀리(Chocolatey) 패키지 매니저 개별
-            설치 메뉴도 지원합니다.
+            원펀치는 공식 CDN 인스톨러 직접 무인 다운로드 엔진을 기본으로 사용하여 별도 외부 패키지 매니저나 런타임 종속성 없이 가장 빠르고 안정적으로 설치됩니다.
           </p>
         </div>
 
         <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm">
-          <h4 class="font-bold text-slate-900 text-base mb-2">Q. VS Code 한국어 언어팩과 필수 확장팩들은 어떻게 적용되나요?</h4>
+          <h4 class="font-bold text-slate-900 text-base mb-2">Q. VS Code 확장팩이나 언어팩은 어떻게 설치하나요?</h4>
           <p class="text-sm text-slate-600 leading-relaxed">
-            원펀치가 공식 한국어 언어팩과 함께 WSL Remote, Python, GitLens, GitHub 확장을 일괄 설치합니다. 또한 <code
-              class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono text-xs">argv.json</code>
-            런타임 인자 주입 및 바로가기에 <code
-              class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono text-xs">--locale=ko</code>를
-            자동 연결하여, 바탕화면이나 시작 메뉴에서 실행 즉시 100% 한글 화면으로 열립니다.
+            원펀치는 시스템 오염이나 기존 확장팩 충돌 없이 공식 순수 Visual Studio Code를 무인 설치합니다. 설치 후 VS Code 마켓플레이스에서 필요한 한국어 언어팩이나 개발 확장 플러그인을 자율적으로 원클릭 설치하실 수 있습니다.
           </p>
         </div>
 
